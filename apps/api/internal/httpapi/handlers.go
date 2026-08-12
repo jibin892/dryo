@@ -236,6 +236,32 @@ func (a *API) updateBatch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+type loadBatchBody struct {
+	ChamberID string `json:"chamberId"`
+}
+
+func (a *API) loadBatch(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var body loadBatchBody
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if strings.TrimSpace(body.ChamberID) == "" {
+		writeError(w, http.StatusBadRequest, "chamberId is required")
+		return
+	}
+	out, err := a.store.LoadBatch(r.Context(), id, body.ChamberID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "batch not found")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not load batch into chamber")
+		return
+	}
+	a.notify.Push("Batch "+out.LotCode, "Loaded into chamber — drying")
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (a *API) advanceBatch(w http.ResponseWriter, r *http.Request) {
 	b, err := a.store.AdvanceBatch(r.Context(), chi.URLParam(r, "id"))
 	if errors.Is(err, store.ErrNotFound) {

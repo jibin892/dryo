@@ -338,6 +338,31 @@ func (s *Store) AdvanceBatch(ctx context.Context, id string) (Batch, error) {
 	return out, nil
 }
 
+// LoadBatch assigns an INTAKE batch to a chamber and starts drying, occupying
+// the chamber — all in one transaction.
+func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string) (Batch, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Batch{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	out, err := scanOneBatch(ctx, tx,
+		`UPDATE batches SET chamber_id=$2, stage='DRYING' WHERE id=$1 RETURNING `+batchCols, batchID, chamberID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Batch{}, ErrNotFound
+	} else if err != nil {
+		return Batch{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2 WHERE id=$1`, chamberID, batchID); err != nil {
+		return Batch{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Batch{}, err
+	}
+	return out, nil
+}
+
 func nextStage(stage string) string {
 	for i, s := range stageOrder {
 		if s == stage {

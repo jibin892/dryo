@@ -26,6 +26,7 @@ export const dryoApi = {
   listBatches: () => api.get<Batch[]>('/batches'),
   createBatch: (input: Partial<Batch>) => api.post<Batch>('/batches', input),
   updateBatch: (id: string, patch: Partial<Batch>) => api.patch<Batch>(`/batches/${id}`, patch),
+  loadBatch: (id: string, chamberId: string) => api.post<Batch>(`/batches/${id}/load`, { chamberId }),
   advanceBatch: (id: string) => api.post<Batch>(`/batches/${id}/advance`),
 
   listChambers: () => api.get<Chamber[]>('/chambers'),

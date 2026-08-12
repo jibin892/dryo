@@ -60,6 +60,7 @@ func NewRouter(cfg config.Config, verifier *auth.Verifier, st *store.Store) http
 				r.Post("/batches", api.createBatch)
 				r.Get("/batches/{id}", api.getBatch)
 				r.Patch("/batches/{id}", api.updateBatch)
+				r.Post("/batches/{id}/load", api.loadBatch)
 				r.Post("/batches/{id}/advance", api.advanceBatch)
 
 				r.Get("/chambers", api.listChambers)

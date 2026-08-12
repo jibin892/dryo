@@ -301,8 +301,11 @@ const NEXT_ACTION: Partial<Record<Batch['stage'], string>> = {
 export function BatchDetail({ batch }: { batch: Batch }) {
   const advanceBatch = useDryo((state) => state.advanceBatch)
   const updateBatch = useDryo((state) => state.updateBatch)
+  const loadBatchIntoChamber = useDryo((state) => state.loadBatchIntoChamber)
   const chambers = useDryo((state) => state.chambers)
   const [editing, setEditing] = useState(false)
+  const [loadChamberSel, setLoadChamberSel] = useState('')
+  const idleChambers = chambers.filter((c) => c.status === 'IDLE')
   const chamber = chambers.find((item) => item.id === batch.chamberId)
   const currentIndex = STAGE_ORDER.indexOf(batch.stage)
   const yieldPct = batch.driedWeightKg ? Math.round((batch.driedWeightKg / batch.greenWeightKg) * 100) : null
@@ -378,9 +381,25 @@ export function BatchDetail({ batch }: { batch: Batch }) {
 
       {action && (
         <div className="sticky-action">
-          <Button onClick={() => advanceBatch(batch.id)}>{action}</Button>
-          {batch.stage === 'CURING' && (
-            <Button variant="light" onClick={skipGrading} style={{ marginTop: 10 }}>Skip grading → Ready</Button>
+          {batch.stage === 'INTAKE' ? (
+            idleChambers.length > 0 ? (
+              <>
+                <select className="biz-select" value={loadChamberSel} onChange={(e) => setLoadChamberSel(e.target.value)} style={{ marginBottom: 10 }}>
+                  <option value="">Choose a chamber…</option>
+                  {idleChambers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <Button disabled={!loadChamberSel} onClick={() => loadBatchIntoChamber(batch.id, loadChamberSel)}>Load into chamber</Button>
+              </>
+            ) : (
+              <StatusBanner tone="warning">No idle chamber available — free one first.</StatusBanner>
+            )
+          ) : (
+            <>
+              <Button onClick={() => advanceBatch(batch.id)}>{action}</Button>
+              {batch.stage === 'CURING' && (
+                <Button variant="light" onClick={skipGrading} style={{ marginTop: 10 }}>Skip grading → Ready</Button>
+              )}
+            </>
           )}
         </div>
       )}
