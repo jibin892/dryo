@@ -1,0 +1,15 @@
+{
+  "name": "dryo",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "web": "npm run dev --workspace apps/web",
+    "web:build": "npm run build --workspace apps/web",
+    "api": "cd apps/api && go run ./cmd/server",
+    "api:build": "cd apps/api && go build -o ../../bin/dryo-api ./cmd/server",
+    "api:tidy": "cd apps/api && go mod tidy"
+  }
+}

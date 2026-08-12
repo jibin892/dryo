@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS batches;
+DROP TABLE IF EXISTS intake_receipts;
+DROP TABLE IF EXISTS inventory_lots;
+DROP TABLE IF EXISTS chambers;
+DROP TABLE IF EXISTS users;

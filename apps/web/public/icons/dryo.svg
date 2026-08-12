@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dryo">
+  <rect width="512" height="512" rx="112" fill="#173b3d"/>
+  <!-- cardamom pod body -->
+  <path d="M256 96c58 44 92 104 92 168 0 62-41 116-92 152-51-36-92-90-92-152 0-64 34-124 92-168z" fill="#fef9ef"/>
+  <!-- pod seam -->
+  <path d="M256 120c0 92 0 200 0 284" stroke="#173b3d" stroke-width="10" stroke-linecap="round"/>
+  <!-- ribs -->
+  <path d="M212 176c18 14 26 34 26 60m62-60c-18 14-26 34-26 60" stroke="#173b3d" stroke-width="9" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <!-- warm drying glow at base -->
+  <path d="M212 372c14 20 28 32 44 44 16-12 30-24 44-44-14 8-29 12-44 12s-30-4-44-12z" fill="#c98a3a"/>
+  <!-- stalk -->
+  <path d="M256 96c0-22-6-40-20-56" stroke="#c98a3a" stroke-width="12" stroke-linecap="round" fill="none"/>
+</svg>

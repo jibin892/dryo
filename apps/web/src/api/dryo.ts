@@ -1,0 +1,70 @@
+import type {
+  Batch,
+  Chamber,
+  Farmer,
+  FarmerDetail,
+  FarmerTransaction,
+  FarmerTransactionType,
+  GradePrice,
+  HouseSettings,
+  IntakeReceipt,
+  InventoryLot,
+  Invitation,
+  Member,
+  ReportSummary,
+  Role,
+  Sale,
+} from '../shared/contracts'
+import { api } from './client'
+
+// The backend /me + members share the User shape.
+export type ApiUser = Member
+
+export const dryoApi = {
+  me: () => api.get<ApiUser>('/me'),
+
+  listBatches: () => api.get<Batch[]>('/batches'),
+  createBatch: (input: Partial<Batch>) => api.post<Batch>('/batches', input),
+  updateBatch: (id: string, patch: Partial<Batch>) => api.patch<Batch>(`/batches/${id}`, patch),
+  advanceBatch: (id: string) => api.post<Batch>(`/batches/${id}/advance`),
+
+  listChambers: () => api.get<Chamber[]>('/chambers'),
+  toggleChamber: (id: string) => api.post<Chamber>(`/chambers/${id}/toggle`),
+
+  listIntake: () => api.get<IntakeReceipt[]>('/intake'),
+  createIntake: (input: Partial<IntakeReceipt>) => api.post<IntakeReceipt>('/intake', input),
+  loadIntake: (id: string, chamberId: string) => api.post<Chamber>(`/intake/${id}/load`, { chamberId }),
+
+  listInventory: () => api.get<InventoryLot[]>('/inventory'),
+  updateInventory: (grade: string, input: { costPerKg: number; location?: string }) =>
+    api.patch<InventoryLot>(`/inventory/${grade}`, input),
+
+  listMembers: () => api.get<Member[]>('/members'),
+  updateMember: (uid: string, patch: { role?: Role; status?: string }) => api.patch<Member>(`/members/${uid}`, patch),
+
+  listInvitations: () => api.get<Invitation[]>('/invitations'),
+  createInvitation: (input: { email?: string; phone?: string; role: Role }) =>
+    api.post<Invitation>('/invitations', input),
+  revokeInvitation: (id: string) => api.del<{ status: string }>(`/invitations/${id}`),
+
+  // Phase 1 — business management
+  listFarmers: () => api.get<Farmer[]>('/farmers'),
+  getFarmer: (id: string) => api.get<FarmerDetail>(`/farmers/${id}`),
+  createFarmer: (input: { name: string; village?: string; phone?: string; note?: string }) =>
+    api.post<Farmer>('/farmers', input),
+  updateFarmer: (id: string, input: { name?: string; village?: string; phone?: string; note?: string }) =>
+    api.patch<Farmer>(`/farmers/${id}`, input),
+  addFarmerTransaction: (id: string, input: { type: FarmerTransactionType; amount: number; note?: string; batchId?: string }) =>
+    api.post<FarmerTransaction>(`/farmers/${id}/transactions`, input),
+
+  listSales: () => api.get<Sale[]>('/sales'),
+  createSale: (input: Partial<Sale>) => api.post<Sale>('/sales', input),
+
+  listPricing: () => api.get<GradePrice[]>('/pricing'),
+  upsertPrice: (grade: string, sellRatePerKg: number) => api.put<GradePrice>(`/pricing/${grade}`, { sellRatePerKg }),
+
+  getSettings: () => api.get<HouseSettings>('/settings'),
+  updateSettings: (input: HouseSettings) => api.patch<HouseSettings>('/settings', input),
+
+  reportSummary: () => api.get<ReportSummary>('/reports/summary'),
+}

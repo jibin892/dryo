@@ -1,0 +1,28 @@
+# Render Blueprint — Dryo Go API (free plan).
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: dryo-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: commit
+    envVars:
+      # Neon Postgres connection string — set as a SECRET in the Render dashboard
+      # (never committed). sync:false prompts you for it on first deploy.
+      - key: DATABASE_URL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: dryo-18227
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: SEED_ON_MIGRATE
+        value: "false"
+      - key: AUTH_DISABLED
+        value: "false"
+      # Allow the deployed web app to call this API.
+      - key: CORS_ORIGINS
+        value: https://web-khaki-alpha-89.vercel.app

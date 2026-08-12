@@ -1,0 +1,120 @@
+.biz-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.biz-input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 16px;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-cta);
+  background: var(--surface-screen);
+  color: var(--text-primary);
+  font-size: 16px;
+  outline: 0;
+}
+
+.biz-input:focus-visible {
+  outline: 3px solid var(--ink-2);
+  outline-offset: 2px;
+}
+
+.biz-amount {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-cta);
+  background: var(--surface-screen);
+  color: var(--text-secondary);
+}
+
+.team-form-title {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.mobile-back-row {
+  padding: 12px 20px 0;
+}
+
+.biz-credit { color: var(--status-positive); }
+.biz-debit { color: var(--status-critical); }
+
+.inv-row {
+  position: relative;
+  padding: 14px 20px;
+}
+
+.inv-row::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 20px;
+  height: 1px;
+  background: var(--border-hairline);
+  content: '';
+}
+
+.inv-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inv-edit {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.inv-edit label {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inv-edit .price-row-input,
+.inv-edit .biz-input { width: 100%; text-align: left; }
+
+@media (min-width: 700px) {
+  .inv-row { padding-left: 28px; padding-right: 28px; }
+  .inv-row::after { left: 28px; }
+}
+
+.biz-select {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-cta);
+  background: var(--surface-screen);
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.price-row-input {
+  width: 120px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-cta);
+  background: var(--surface-screen);
+  color: var(--text-primary);
+  font-size: 16px;
+  text-align: right;
+  outline: 0;
+}
+
+@media (min-width: 700px) {
+  .mobile-back-row { padding-left: 28px; padding-right: 28px; }
+}

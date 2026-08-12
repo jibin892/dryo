@@ -1,0 +1,20 @@
+# dependencies
+node_modules
+bin
+
+# build output
+dist
+dist-ssr
+
+# env — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# go
+apps/api/tmp
+
+# misc
+.DS_Store
+.vite
+*.local

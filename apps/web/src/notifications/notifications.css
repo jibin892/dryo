@@ -1,0 +1,17 @@
+.notify-row {
+  align-items: flex-start;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.notify-row .list-row-lead { margin-top: 2px; }
+
+.notify-warning .list-row-lead { background: rgb(138 90 24 / 12%); color: var(--status-warning); }
+.notify-critical .list-row-lead { background: rgb(156 61 53 / 12%); color: var(--status-critical); }
+.notify-positive .list-row-lead { background: rgb(52 116 95 / 12%); color: var(--status-positive); }
+
+.notify-time {
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}

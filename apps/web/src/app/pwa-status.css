@@ -1,0 +1,41 @@
+.connectivity-banner,
+.install-banner {
+  position: sticky;
+  z-index: 50;
+  top: 0;
+  display: flex;
+  align-items: center;
+  padding: 10px 16px calc(10px + env(safe-area-inset-top));
+  padding-top: calc(10px + env(safe-area-inset-top));
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.connectivity-banner {
+  background: rgb(156 61 53 / 12%);
+  color: var(--status-critical);
+}
+
+.install-banner {
+  background: var(--surface-accent);
+  color: var(--on-accent);
+}
+
+.install-banner span { flex: 1; }
+
+.install-banner button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 16%);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.install-banner button:last-child {
+  min-width: 34px;
+  padding: 0;
+  background: transparent;
+}

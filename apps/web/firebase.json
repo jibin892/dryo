@@ -1,0 +1,15 @@
+{
+  "auth": {
+    "authorizedDomains": [
+      "localhost",
+      "dryo-18227.firebaseapp.com",
+      "dryo-18227.web.app"
+    ],
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Dryo",
+        "supportEmail": "jibincherian892@gmail.com"
+      }
+    }
+  }
+}
