@@ -27,7 +27,7 @@ function friendlyError(err: unknown): string {
     case 'auth/unauthorized-domain':
       return 'This domain is not authorized for sign-in yet. Add it in the Firebase console.'
     case 'auth/operation-not-allowed':
-      return 'Phone sign-in is not enabled yet. Ask an admin to turn on the Phone provider in Firebase.'
+      return 'SMS to this region is blocked. In Firebase → Authentication → Settings → SMS region policy, allow India (+91).'
     case 'auth/invalid-phone-number':
       return 'Enter a valid 10-digit mobile number.'
     case 'auth/invalid-verification-code':
