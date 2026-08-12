@@ -78,13 +78,13 @@ export function AccountScreen({
       <SectionHeader title="Workplace" />
       <div className="list-group">
         <ListRow lead={<Building2 aria-hidden="true" size={20} />} title={session.houseName} subtitle="Idukki, Kerala" />
-        <ListRow lead={<ShieldCheck aria-hidden="true" size={20} />} title="Role & permissions" subtitle={ROLE_LABEL[session.role]} value="Managed" />
+        <ListRow lead={<ShieldCheck aria-hidden="true" size={20} />} title="Role & permissions" subtitle={ROLE_LABEL[session.role]} />
       </div>
 
       <SectionHeader title="Preferences" />
       <div className="list-group">
-        <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Notifications" subtitle="Over-temp alerts, moisture targets" value="On" onClick={() => undefined} />
-        <ListRow lead={<Smartphone aria-hidden="true" size={20} />} title="Offline mode" subtitle="Cache readings on the drying floor" value="On" onClick={() => undefined} />
+        <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Notifications" subtitle="Over-temp alerts, moisture targets" value="On" />
+        <ListRow lead={<Smartphone aria-hidden="true" size={20} />} title="Offline mode" subtitle="Cache readings on the drying floor" value="On" />
       </div>
 
       <div className="sticky-action">

@@ -182,6 +182,8 @@ export type Sale = {
 export type GradePrice = {
   grade: Grade
   sellRatePerKg: number
+  costRatePerKg: number
+  yieldRatio: number
   updatedAt: string
 }
 

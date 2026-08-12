@@ -47,8 +47,9 @@ export function DashboardScreen({
   const faults = chambers.filter((chamber) => chamber.status === 'FAULT')
   const readyKg = batches.filter((batch) => batch.stage === 'READY').reduce((sum, batch) => sum + (batch.driedWeightKg ?? 0), 0)
   const storeKg = inventory.reduce((sum, lot) => sum + lot.bulkKg, 0)
+  const today = new Date().toISOString().slice(0, 10)
   const greenTodayKg = batches
-    .filter((batch) => batch.startedAt.startsWith('2026-08-11'))
+    .filter((batch) => batch.startedAt.slice(0, 10) === today)
     .reduce((sum, batch) => sum + batch.greenWeightKg, 0)
 
   return (

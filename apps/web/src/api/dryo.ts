@@ -61,7 +61,8 @@ export const dryoApi = {
   createSale: (input: Partial<Sale>) => api.post<Sale>('/sales', input),
 
   listPricing: () => api.get<GradePrice[]>('/pricing'),
-  upsertPrice: (grade: string, sellRatePerKg: number) => api.put<GradePrice>(`/pricing/${grade}`, { sellRatePerKg }),
+  upsertPrice: (grade: string, input: { sellRatePerKg: number; costRatePerKg?: number; yieldRatio?: number }) =>
+    api.put<GradePrice>(`/pricing/${grade}`, input),
 
   getSettings: () => api.get<HouseSettings>('/settings'),
   updateSettings: (input: HouseSettings) => api.patch<HouseSettings>('/settings', input),

@@ -27,7 +27,7 @@ export function NotificationsScreen() {
               <span className="list-row-copy">
                 <span className="list-row-title">{note.title}</span>
                 <span className="list-row-subtitle" style={{ whiteSpace: 'normal' }}>{note.body}</span>
-                <span className="notify-time">{relativeTime(note.at, new Date('2026-08-11T08:20:00+05:30').getTime())}</span>
+                <span className="notify-time">{relativeTime(note.at)}</span>
               </span>
             </div>
           )

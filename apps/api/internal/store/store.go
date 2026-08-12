@@ -202,10 +202,10 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 	}
 	return scanOneBatch(ctx, s.pool,
 		`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, stage,
-		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING `+batchCols,
+		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING `+batchCols,
 		b.ID, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.Stage,
-		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg)
+		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade)
 }
 
 // BatchPatch carries optional edits; nil fields are left unchanged.

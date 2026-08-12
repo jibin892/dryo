@@ -6,7 +6,7 @@ import {
   inventoryLots as seedInventory,
   notifications as seedNotifications,
 } from '../mocks/data'
-import { STAGE_ORDER, type Batch, type BatchStage, type Chamber, type IntakeReceipt } from '../shared/contracts'
+import { STAGE_ORDER, type Batch, type BatchStage, type Chamber, type Grade, type IntakeReceipt } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 
 export type NewIntakeInput = {
@@ -28,6 +28,7 @@ export type NewBatchInput = {
   farmerId?: string
   ownership?: 'OWN' | 'JOBWORK'
   curingRatePerKg?: number
+  grade?: Grade
 }
 
 type DryoState = {
@@ -92,6 +93,7 @@ export const useDryo = create<DryoState>((set) => ({
       note: input.note,
       ownership: input.ownership ?? 'OWN',
       farmerId: input.farmerId ?? null,
+      grade: input.grade,
     }
     set((state) => ({ batches: [optimistic, ...state.batches] }))
     void dryoApi

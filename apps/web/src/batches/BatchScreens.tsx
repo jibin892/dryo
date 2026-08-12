@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Droplets, Pencil, Plus } from 'lucide-react'
-import type { Batch, Farmer, Grade } from '../shared/contracts'
+import type { Batch, Farmer, Grade, GradePrice } from '../shared/contracts'
 import { GRADE_LABEL, STAGE_LABEL, STAGE_ORDER } from '../shared/contracts'
 import { clockTime, stageTone } from '../shared/format'
 import { dryoApi } from '../api/dryo'
@@ -83,12 +83,17 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
   const [greenWeightKg, setGreen] = useState('')
   const [currentMoisture, setMoisture] = useState('72')
   const [rate, setRate] = useState('')
+  const [prices, setPrices] = useState<GradePrice[]>([])
+  const [grade, setGrade] = useState<Grade | ''>('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     dryoApi.listFarmers().then(setFarmers).catch(() => setFarmers([]))
+    dryoApi.listPricing().then(setPrices).catch(() => setPrices([]))
   }, [])
 
+  const gradePrice = prices.find((p) => p.grade === grade)
+  const estDried = gradePrice && Number(greenWeightKg) > 0 ? Math.round(Number(greenWeightKg) * gradePrice.yieldRatio) : null
   const selectedFarmer = farmers.find((f) => f.id === farmerSel)
   const chosenName = farmerSel === 'NEW' ? newFarmer.name : selectedFarmer?.name ?? ''
   const valid = lotCode.trim().length > 0 && chosenName.trim().length > 1 && Number(greenWeightKg) > 0
@@ -121,6 +126,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         curingRatePerKg: ownership === 'JOBWORK' ? value : 0,
         farmerId,
         ownership,
+        grade: grade || undefined,
       })
     } finally {
       setBusy(false)
@@ -161,6 +167,19 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         <input className="biz-input" placeholder="Green kg" value={greenWeightKg} onChange={(e) => setGreen(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
         <input className="biz-input" placeholder="Moisture %" value={currentMoisture} onChange={(e) => setMoisture(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
       </div>
+
+      <select className="biz-select" value={grade} onChange={(e) => setGrade(e.target.value as Grade | '')}>
+        <option value="">Expected grade (optional)…</option>
+        {prices.map((p) => (
+          <option key={p.grade} value={p.grade}>{GRADE_LABEL[p.grade] ?? p.grade} · sell ₹{p.sellRatePerKg}/kg</option>
+        ))}
+      </select>
+      {estDried != null && gradePrice && (
+        <p className="detail-sub" style={{ padding: '0 4px' }}>
+          Est. dried ≈ <strong>{estDried} kg</strong> ({Math.round(gradePrice.yieldRatio * 100)}% yield) · sell ₹{gradePrice.sellRatePerKg}/kg · cost ₹{gradePrice.costRatePerKg}/kg
+        </p>
+      )}
+
       <input
         className="biz-input"
         placeholder={ownership === 'OWN' ? 'Rate ₹/kg green (paid to farmer)' : 'Curing charge ₹/kg'}

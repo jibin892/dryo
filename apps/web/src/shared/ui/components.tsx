@@ -81,11 +81,7 @@ export function StatusBanner({ children, tone = 'neutral' }: { children: ReactNo
   )
 }
 
-export function Skeleton({ width = '100%', height = 18 }: { width?: string; height?: number }) {
-  return <span className="skeleton" aria-hidden="true" style={{ width, height }} />
-}
-
-/** Weight formatter — the domain's answer to darlink's <Price>. */
+/** Weight formatter for kilograms. */
 export function Weight({ kg, size = 'md' }: { kg: number; size?: 'sm' | 'md' | 'lg' }) {
   return (
     <span className={`metric metric-${size}`} aria-label={`${kg} kilograms`}>

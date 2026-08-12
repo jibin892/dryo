@@ -190,17 +190,6 @@ button.list-row:active,
 .status-banner-warning { background: rgb(138 90 24 / 10%); color: var(--status-warning); }
 .status-banner-critical { background: rgb(156 61 53 / 10%); color: var(--status-critical); }
 
-.skeleton {
-  display: inline-block;
-  border-radius: var(--radius-pill);
-  background: var(--fill-08);
-  animation: skeleton-pulse 1.4s var(--ease-inout) infinite;
-}
-
-@keyframes skeleton-pulse {
-  50% { opacity: 0.35; }
-}
-
 /* --- Dryo additions --- */
 
 .metric { color: var(--text-primary); white-space: nowrap; }
@@ -372,12 +361,6 @@ button.list-row:active,
 }
 
 .empty-state p { max-width: 300px; font-size: 14px; line-height: 1.5; }
-
-.price { color: var(--text-primary); white-space: nowrap; }
-.price span { margin-right: 2px; color: var(--text-tertiary); font-size: 0.65em; letter-spacing: 0.04em; }
-.price-sm { font-size: 16px; }
-.price-md { font-size: 20px; }
-.price-lg { font-size: 32px; }
 
 .sticky-action {
   position: sticky;

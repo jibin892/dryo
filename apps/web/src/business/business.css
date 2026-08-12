@@ -86,6 +86,27 @@
 .inv-edit .price-row-input,
 .inv-edit .biz-input { width: 100%; text-align: left; }
 
+.price-fields {
+  display: flex;
+  gap: 10px;
+}
+
+.price-fields label {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.price-fields .price-row-input {
+  width: 100%;
+  text-align: left;
+}
+
 @media (min-width: 700px) {
   .inv-row { padding-left: 28px; padding-right: 28px; }
   .inv-row::after { left: 28px; }

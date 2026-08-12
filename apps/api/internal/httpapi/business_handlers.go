@@ -176,6 +176,8 @@ func (a *API) listGradePrices(w http.ResponseWriter, r *http.Request) {
 
 type priceBody struct {
 	SellRatePerKg float64 `json:"sellRatePerKg"`
+	CostRatePerKg float64 `json:"costRatePerKg"`
+	YieldRatio    float64 `json:"yieldRatio"`
 }
 
 func (a *API) upsertGradePrice(w http.ResponseWriter, r *http.Request) {
@@ -184,11 +186,14 @@ func (a *API) upsertGradePrice(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if body.SellRatePerKg < 0 {
-		writeError(w, http.StatusBadRequest, "rate must be zero or positive")
+	if body.SellRatePerKg < 0 || body.CostRatePerKg < 0 {
+		writeError(w, http.StatusBadRequest, "rates must be zero or positive")
 		return
 	}
-	out, err := a.store.UpsertGradePrice(r.Context(), grade, body.SellRatePerKg)
+	if body.YieldRatio <= 0 || body.YieldRatio > 1 {
+		body.YieldRatio = 0.20 // sensible default green→dried ratio
+	}
+	out, err := a.store.UpsertGradePrice(r.Context(), grade, body.SellRatePerKg, body.CostRatePerKg, body.YieldRatio)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not update price")
 		return

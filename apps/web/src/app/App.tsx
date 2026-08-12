@@ -36,6 +36,7 @@ export function App() {
 
   const batches = useDryo((state) => state.batches)
   const chambers = useDryo((state) => state.chambers)
+  const notifications = useDryo((state) => state.notifications)
   const loadAll = useDryo((state) => state.loadAll)
 
   useEffect(() => {
@@ -148,7 +149,7 @@ export function App() {
       onNavigate={navigate}
       userName={session.displayName}
       title={session.houseName}
-      notificationCount={2}
+      notificationCount={notifications.length}
       detail={detail}
       focusDetail={routedBatch || routedChamber}
       mobileDetail={mobileDetail}

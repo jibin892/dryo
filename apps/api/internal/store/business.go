@@ -33,6 +33,8 @@ type FarmerTransaction struct {
 type GradePrice struct {
 	Grade         string    `json:"grade"         db:"grade"`
 	SellRatePerKg float64   `json:"sellRatePerKg" db:"sell_rate_per_kg"`
+	CostRatePerKg float64   `json:"costRatePerKg" db:"cost_rate_per_kg"`
+	YieldRatio    float64   `json:"yieldRatio"    db:"yield_ratio"`
 	UpdatedAt     time.Time `json:"updatedAt"     db:"updated_at"`
 }
 
@@ -137,19 +139,26 @@ func (s *Store) AddFarmerTransaction(ctx context.Context, t FarmerTransaction) (
 
 // ─────────────────────────── pricing & settings ───────────────────────────
 
+const gradePriceCols = `grade, sell_rate_per_kg, cost_rate_per_kg, yield_ratio, updated_at`
+
 func (s *Store) ListGradePrices(ctx context.Context) ([]GradePrice, error) {
-	rows, err := s.pool.Query(ctx, `SELECT grade, sell_rate_per_kg, updated_at FROM grade_prices ORDER BY sell_rate_per_kg DESC`)
+	rows, err := s.pool.Query(ctx, `SELECT `+gradePriceCols+` FROM grade_prices ORDER BY sell_rate_per_kg DESC`)
 	if err != nil {
 		return nil, err
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[GradePrice])
 }
 
-func (s *Store) UpsertGradePrice(ctx context.Context, grade string, rate float64) (GradePrice, error) {
+func (s *Store) UpsertGradePrice(ctx context.Context, grade string, sell, cost, yieldRatio float64) (GradePrice, error) {
 	rows, err := s.pool.Query(ctx,
-		`INSERT INTO grade_prices (grade, sell_rate_per_kg, updated_at) VALUES ($1,$2,now())
-		 ON CONFLICT (grade) DO UPDATE SET sell_rate_per_kg=EXCLUDED.sell_rate_per_kg, updated_at=now()
-		 RETURNING grade, sell_rate_per_kg, updated_at`, grade, rate)
+		`INSERT INTO grade_prices (grade, sell_rate_per_kg, cost_rate_per_kg, yield_ratio, updated_at)
+		 VALUES ($1,$2,$3,$4,now())
+		 ON CONFLICT (grade) DO UPDATE SET
+		   sell_rate_per_kg=EXCLUDED.sell_rate_per_kg,
+		   cost_rate_per_kg=EXCLUDED.cost_rate_per_kg,
+		   yield_ratio=EXCLUDED.yield_ratio,
+		   updated_at=now()
+		 RETURNING `+gradePriceCols, grade, sell, cost, yieldRatio)
 	if err != nil {
 		return GradePrice{}, err
 	}
