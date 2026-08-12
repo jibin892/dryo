@@ -17,6 +17,8 @@ type Config struct {
 	GoogleCredentials string
 	AuthDisabled      bool
 	CORSOrigins       []string
+	OneSignalAppID    string
+	OneSignalKey      string
 }
 
 func getenv(key, def string) string {
@@ -59,5 +61,7 @@ func Load() Config {
 		GoogleCredentials: os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"),
 		AuthDisabled:      getbool("AUTH_DISABLED", false),
 		CORSOrigins:       origins,
+		OneSignalAppID:    getenv("ONESIGNAL_APP_ID", "d0b787e4-6ae5-4869-ad83-9086b501040f"),
+		OneSignalKey:      os.Getenv("ONESIGNAL_REST_API_KEY"),
 	}
 }

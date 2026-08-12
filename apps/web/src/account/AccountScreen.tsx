@@ -1,6 +1,7 @@
 import { Bell, Building2, LogOut, PackageCheck, ShieldCheck, Smartphone, Tag, Users, UserRound, Warehouse, Wheat } from 'lucide-react'
 import type { Session } from '../shared/contracts'
 import { canManageMembers } from '../shared/contracts'
+import { promptOneSignal } from '../notifications/oneSignal'
 import { Button, ListRow, Pill, ScreenHeading, SectionHeader } from '../shared/ui/components'
 
 const ROLE_LABEL: Record<Session['role'], string> = {
@@ -83,7 +84,7 @@ export function AccountScreen({
 
       <SectionHeader title="Preferences" />
       <div className="list-group">
-        <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Notifications" subtitle="Over-temp alerts, moisture targets" value="On" />
+        <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Push notifications" subtitle="Over-temp alerts, batches, sales" value="Enable" onClick={() => promptOneSignal()} />
         <ListRow lead={<Smartphone aria-hidden="true" size={20} />} title="Offline mode" subtitle="Cache readings on the drying floor" value="On" />
       </div>
 

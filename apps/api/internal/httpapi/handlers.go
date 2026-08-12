@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -9,12 +10,14 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/dryo/api/internal/auth"
+	"github.com/dryo/api/internal/notify"
 	"github.com/dryo/api/internal/store"
 )
 
 // API holds handler dependencies.
 type API struct {
-	store *store.Store
+	store  *store.Store
+	notify *notify.OneSignal
 }
 
 func (a *API) health(w http.ResponseWriter, _ *http.Request) {
@@ -131,6 +134,11 @@ func (a *API) createInvitation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not create invitation")
 		return
 	}
+	contact := inv.Email
+	if contact == "" {
+		contact = inv.Phone
+	}
+	a.notify.Push("Team invitation", fmt.Sprintf("%s invited as %s", contact, strings.ToLower(inv.Role)))
 	writeJSON(w, http.StatusCreated, inv)
 }
 
@@ -183,6 +191,7 @@ func (a *API) createBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not create batch")
 		return
 	}
+	a.notify.Push("New batch "+out.LotCode, fmt.Sprintf("%s · %.0f kg green", out.FarmerName, out.GreenWeightKg))
 	writeJSON(w, http.StatusCreated, out)
 }
 
@@ -234,6 +243,7 @@ func (a *API) advanceBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not advance batch")
 		return
 	}
+	a.notify.Push("Batch "+b.LotCode, "Moved to "+b.Stage)
 	writeJSON(w, http.StatusOK, b)
 }
 
@@ -257,6 +267,7 @@ func (a *API) toggleChamber(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not toggle chamber")
 		return
 	}
+	a.notify.Push("Chamber "+c.Name, "Now "+c.Status)
 	writeJSON(w, http.StatusOK, c)
 }
 
@@ -285,6 +296,7 @@ func (a *API) createIntake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not create intake receipt")
 		return
 	}
+	a.notify.Push("New intake", fmt.Sprintf("%s · %.0f kg green", out.FarmerName, out.WeightKg))
 	writeJSON(w, http.StatusCreated, out)
 }
 
@@ -309,6 +321,7 @@ func (a *API) loadIntake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load intake")
 		return
 	}
+	a.notify.Push("Chamber "+c.Name, "Loaded and heating")
 	writeJSON(w, http.StatusOK, c)
 }
 

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"strings"
@@ -256,6 +257,7 @@ func (a *API) createSale(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not record sale")
 		return
 	}
+	a.notify.Push("Sale recorded", fmt.Sprintf("%.0f kg %s → %s · ₹%.0f", out.QuantityKg, out.Grade, out.BuyerName, out.Amount))
 	writeJSON(w, http.StatusCreated, out)
 }
 

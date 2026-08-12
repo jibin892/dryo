@@ -16,6 +16,7 @@ import { FarmersScreen } from '../business/FarmersScreen'
 import { SalesScreen } from '../business/SalesScreen'
 import { PricingScreen } from '../business/PricingScreen'
 import { NotificationsScreen } from '../notifications/NotificationsScreen'
+import { identifyOneSignalUser, initOneSignal, logoutOneSignal } from '../notifications/oneSignal'
 import { AppShell, type MobileDetailNavigation } from './AppShell'
 import { useHistoryRouter } from './useHistoryRouter'
 import { useDryo } from './store'
@@ -40,6 +41,7 @@ export function App() {
   const loadAll = useDryo((state) => state.loadAll)
 
   useEffect(() => {
+    initOneSignal()
     return onAuthStateChanged(auth, (user) => {
       if (!user) {
         setSession(null)
@@ -49,6 +51,7 @@ export function App() {
       void fetchSession(user)
         .then((next) => {
           setSession(next)
+          identifyOneSignalUser(user.uid)
           if (next.status === 'ACTIVE') void loadAll()
         })
         .catch(() => setSession(null))
@@ -65,7 +68,7 @@ export function App() {
   }
 
   if (session.status !== 'ACTIVE') {
-    return <PendingScreen session={session} onLogout={() => { void signOutUser(); navigate('/') }} />
+    return <PendingScreen session={session} onLogout={() => { void signOutUser(); logoutOneSignal(); navigate('/') }} />
   }
 
   const firstName = session.displayName.split(' ')[0]
@@ -111,7 +114,7 @@ export function App() {
     content = <PricingScreen canEdit={canManageMembers(session.role)} />
     if (wide === false) mobileDetail = { title: 'Pricing', onBack: () => goBack('/account') }
   } else if (currentPath === '/account') {
-    content = <AccountScreen session={session} onNavigate={navigate} onLogout={() => { void signOutUser(); navigate('/') }} />
+    content = <AccountScreen session={session} onNavigate={navigate} onLogout={() => { void signOutUser(); logoutOneSignal(); navigate('/') }} />
   } else if (currentPath.startsWith('/batches')) {
     activePath = '/batches'
     content = <BatchesScreen selectedId={selectedBatch?.id} onSelect={openBatch} />

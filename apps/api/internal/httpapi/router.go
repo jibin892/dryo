@@ -11,12 +11,13 @@ import (
 
 	"github.com/dryo/api/internal/auth"
 	"github.com/dryo/api/internal/config"
+	"github.com/dryo/api/internal/notify"
 	"github.com/dryo/api/internal/store"
 )
 
 // NewRouter builds the fully-wired HTTP handler.
 func NewRouter(cfg config.Config, verifier *auth.Verifier, st *store.Store) http.Handler {
-	api := &API{store: st}
+	api := &API{store: st, notify: notify.New(cfg.OneSignalAppID, cfg.OneSignalKey)}
 	r := chi.NewRouter()
 
 	// Baseline middleware: request id, real ip, panic recovery, hard timeout.
