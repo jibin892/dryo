@@ -63,6 +63,7 @@ type Batch struct {
 	Ownership       string    `json:"ownership"       db:"ownership"`
 	FarmerID        *string   `json:"farmerId"        db:"farmer_id"`
 	CuringRatePerKg float64   `json:"curingRatePerKg" db:"curing_rate_per_kg"`
+	GradingCharge   float64   `json:"gradingCharge"   db:"grading_charge"`
 }
 
 type Chamber struct {

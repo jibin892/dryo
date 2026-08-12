@@ -80,6 +80,7 @@ export type Batch = {
   ownership?: 'OWN' | 'JOBWORK'
   farmerId?: string | null
   curingRatePerKg?: number
+  gradingCharge?: number
 }
 
 export type ChamberStatus = 'IDLE' | 'HEATING' | 'DRYING' | 'CURING' | 'COOLING' | 'FAULT'

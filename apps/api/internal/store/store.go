@@ -167,7 +167,7 @@ func (s *Store) RevokeInvitation(ctx context.Context, id string) error {
 
 const batchCols = `id, lot_code, farmer_name, village, green_weight_kg, dried_weight_kg,
 	chamber_id, stage, started_at, target_moisture, current_moisture, grade, rate_per_kg, note,
-	ownership, farmer_id, curing_rate_per_kg`
+	ownership, farmer_id, curing_rate_per_kg, grading_charge`
 
 var stageOrder = []string{"INTAKE", "DRYING", "CURING", "GRADING", "READY", "DISPATCHED"}
 
@@ -202,10 +202,10 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 	}
 	return scanOneBatch(ctx, s.pool,
 		`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, stage,
-		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING `+batchCols,
+		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_charge)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING `+batchCols,
 		b.ID, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.Stage,
-		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade)
+		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingCharge)
 }
 
 // BatchPatch carries optional edits; nil fields are left unchanged.
@@ -219,6 +219,7 @@ type BatchPatch struct {
 	DriedWeightKg   *float64
 	CurrentMoisture *float64
 	RatePerKg       *float64
+	GradingCharge   *float64
 }
 
 // UpdateBatch edits a batch's details, including the actual dried weight and grade.
@@ -263,12 +264,15 @@ func (s *Store) UpdateBatch(ctx context.Context, id string, p BatchPatch) (Batch
 		n := *p.Note
 		b.Note = &n
 	}
+	if p.GradingCharge != nil {
+		b.GradingCharge = *p.GradingCharge
+	}
 	return scanOneBatch(ctx, s.pool,
 		`UPDATE batches SET lot_code=$2, farmer_name=$3, village=$4, green_weight_kg=$5,
-		   dried_weight_kg=$6, current_moisture=$7, rate_per_kg=$8, grade=$9, note=$10
+		   dried_weight_kg=$6, current_moisture=$7, rate_per_kg=$8, grade=$9, note=$10, grading_charge=$11
 		 WHERE id=$1 RETURNING `+batchCols,
 		id, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.DriedWeightKg,
-		b.CurrentMoisture, b.RatePerKg, b.Grade, b.Note)
+		b.CurrentMoisture, b.RatePerKg, b.Grade, b.Note, b.GradingCharge)
 }
 
 // AdvanceBatch moves a batch to the next lifecycle stage. Moving into GRADING

@@ -203,6 +203,7 @@ function BatchEditForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (pat
   const [currentMoisture, setMoisture] = useState(String(batch.currentMoisture))
   const [ratePerKg, setRate] = useState(String(batch.ratePerKg))
   const [grade, setGrade] = useState<Grade | ''>(batch.grade ?? '')
+  const [gradingCharge, setGradingCharge] = useState(batch.gradingCharge ? String(batch.gradingCharge) : '')
   const [note, setNote] = useState(batch.note ?? '')
 
   const dried = Number(driedWeightKg)
@@ -219,6 +220,7 @@ function BatchEditForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (pat
       currentMoisture: Number(currentMoisture) || 0,
       ratePerKg: Number(ratePerKg) || 0,
       grade: grade === '' ? undefined : grade,
+      gradingCharge: gradingCharge === '' ? 0 : Number(gradingCharge),
       note,
     })
   }
@@ -242,6 +244,7 @@ function BatchEditForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (pat
         <option value="">Not graded (optional)</option>
         {GRADES.map((g) => <option key={g} value={g}>{GRADE_LABEL[g]}</option>)}
       </select>
+      <input className="biz-input" placeholder="Grading charge ₹ (add-on, separate from drying)" value={gradingCharge} onChange={(e) => setGradingCharge(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
       <input className="biz-input" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <div style={{ display: 'flex', gap: 12 }}>
         <Button type="submit">Save batch</Button>
@@ -309,6 +312,7 @@ export function BatchDetail({ batch }: { batch: Batch }) {
           <div className="field"><small>Rate</small><strong>₹{batch.ratePerKg.toLocaleString('en-IN')}/kg</strong></div>
           <div className="field"><small>Grade</small><strong>{batch.grade ? GRADE_LABEL[batch.grade] : 'Pending'}</strong></div>
           <div className="field"><small>Chamber</small><strong>{chamber ? chamber.name : '—'}</strong></div>
+          <div className="field"><small>Grading add-on</small><strong>{batch.gradingCharge ? `₹${batch.gradingCharge.toLocaleString('en-IN')}` : '—'}</strong></div>
         </div>
       </div>
 

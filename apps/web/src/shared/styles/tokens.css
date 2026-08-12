@@ -1,5 +1,6 @@
 :root {
   --teal-900: #173b3d;
+  --cardamom-900: #2e6b34;
   --cream-50: #fef9ef;
   --tan-100: #f7eee0;
   --white: #ffffff;
@@ -14,9 +15,9 @@
   --surface-screen: var(--cream-50);
   --surface-cell: var(--tan-100);
   --surface-card: var(--white);
-  --surface-accent: var(--teal-900);
+  --surface-accent: var(--cardamom-900);
   --tabbar-bg: rgb(254 249 239 / 94%);
-  --accent: var(--teal-900);
+  --accent: var(--cardamom-900);
   --on-accent: var(--white);
   --text-primary: var(--ink-1);
   --text-secondary: var(--ink-6);
