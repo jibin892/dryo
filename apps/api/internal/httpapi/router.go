@@ -30,7 +30,7 @@ func NewRouter(cfg config.Config, verifier *auth.Verifier, st *store.Store) http
 	// CORS locked to configured web origins.
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.CORSOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"X-Request-Id"},
 		AllowCredentials: false,
