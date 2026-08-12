@@ -191,21 +191,44 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 	if b.ID == "" {
 		b.ID = newID("bt")
 	}
-	if b.Stage == "" {
-		b.Stage = "INTAKE"
-	}
 	if b.TargetMoisture == 0 {
 		b.TargetMoisture = 10
 	}
 	if b.Ownership == "" {
 		b.Ownership = "OWN"
 	}
-	return scanOneBatch(ctx, s.pool,
-		`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, stage,
+	// Loading straight into a chamber starts the drying stage.
+	loadChamber := b.ChamberID != nil && *b.ChamberID != ""
+	if loadChamber {
+		b.Stage = "DRYING"
+	} else if b.Stage == "" {
+		b.Stage = "INTAKE"
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Batch{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	out, err := scanOneBatch(ctx, tx,
+		`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, chamber_id, stage,
 		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_charge)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING `+batchCols,
-		b.ID, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.Stage,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING `+batchCols,
+		b.ID, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.ChamberID, b.Stage,
 		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingCharge)
+	if err != nil {
+		return Batch{}, err
+	}
+	if loadChamber {
+		if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2 WHERE id=$1`, *b.ChamberID, b.ID); err != nil {
+			return Batch{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Batch{}, err
+	}
+	return out, nil
 }
 
 // BatchPatch carries optional edits; nil fields are left unchanged.

@@ -29,6 +29,8 @@ export type NewBatchInput = {
   ownership?: 'OWN' | 'JOBWORK'
   curingRatePerKg?: number
   grade?: Grade
+  chamberId?: string
+  gradingCharge?: number
 }
 
 type DryoState = {
@@ -85,7 +87,8 @@ export const useDryo = create<DryoState>((set) => ({
       farmerName: input.farmerName,
       village: input.village,
       greenWeightKg: input.greenWeightKg,
-      stage: 'INTAKE',
+      chamberId: input.chamberId,
+      stage: input.chamberId ? 'DRYING' : 'INTAKE',
       startedAt: new Date().toISOString(),
       targetMoisture: 10,
       currentMoisture: input.currentMoisture,
@@ -94,8 +97,15 @@ export const useDryo = create<DryoState>((set) => ({
       ownership: input.ownership ?? 'OWN',
       farmerId: input.farmerId ?? null,
       grade: input.grade,
+      gradingCharge: input.gradingCharge,
     }
-    set((state) => ({ batches: [optimistic, ...state.batches] }))
+    set((state) => ({
+      batches: [optimistic, ...state.batches],
+      // If loaded into a chamber, occupy it optimistically.
+      chambers: input.chamberId
+        ? state.chambers.map((c) => (c.id === input.chamberId ? { ...c, status: 'DRYING', batchId: optimistic.id } : c))
+        : state.chambers,
+    }))
     void dryoApi
       .createBatch(input)
       .then((created) => set((state) => ({ batches: state.batches.map((b) => (b.id === optimistic.id ? created : b)) })))

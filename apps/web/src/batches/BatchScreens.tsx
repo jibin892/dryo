@@ -85,12 +85,26 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
   const [rate, setRate] = useState('')
   const [prices, setPrices] = useState<GradePrice[]>([])
   const [grade, setGrade] = useState<Grade | ''>('')
+  const [note, setNote] = useState('')
+  const [chamberSel, setChamberSel] = useState('')
+  const [gradingOn, setGradingOn] = useState(false)
+  const [gradingCharge, setGradingCharge] = useState('')
   const [busy, setBusy] = useState(false)
+  const chambers = useDryo((s) => s.chambers)
+  const idleChambers = chambers.filter((c) => c.status === 'IDLE')
 
   useEffect(() => {
     dryoApi.listFarmers().then(setFarmers).catch(() => setFarmers([]))
     dryoApi.listPricing().then(setPrices).catch(() => setPrices([]))
   }, [])
+
+  // Picking a grade auto-fills the green rate: dried cost × yield ≈ what the
+  // green is worth per kg (own-purchase only; job-work uses a curing charge).
+  function onGradeChange(g: Grade | '') {
+    setGrade(g)
+    const gp = prices.find((p) => p.grade === g)
+    if (gp && ownership === 'OWN') setRate(String(Math.round(gp.costRatePerKg * gp.yieldRatio)))
+  }
 
   const gradePrice = prices.find((p) => p.grade === grade)
   const estDried = gradePrice && Number(greenWeightKg) > 0 ? Math.round(Number(greenWeightKg) * gradePrice.yieldRatio) : null
@@ -127,6 +141,9 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         farmerId,
         ownership,
         grade: grade || undefined,
+        note: note.trim() || undefined,
+        chamberId: chamberSel || undefined,
+        gradingCharge: gradingOn ? Number(gradingCharge) || 0 : 0,
       })
     } finally {
       setBusy(false)
@@ -168,7 +185,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         <input className="biz-input" placeholder="Moisture %" value={currentMoisture} onChange={(e) => setMoisture(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
       </div>
 
-      <select className="biz-select" value={grade} onChange={(e) => setGrade(e.target.value as Grade | '')}>
+      <select className="biz-select" value={grade} onChange={(e) => onGradeChange(e.target.value as Grade | '')}>
         <option value="">Expected grade (optional)…</option>
         {prices.map((p) => (
           <option key={p.grade} value={p.grade}>{GRADE_LABEL[p.grade] ?? p.grade} · sell ₹{p.sellRatePerKg}/kg</option>
@@ -187,6 +204,25 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
         inputMode="decimal"
       />
+
+      <select className="biz-select" value={chamberSel} onChange={(e) => setChamberSel(e.target.value)}>
+        <option value="">Load into chamber later…</option>
+        {idleChambers.map((c) => (
+          <option key={c.id} value={c.id}>Load into {c.name}</option>
+        ))}
+      </select>
+
+      <div className="chip-row" style={{ padding: '2px 0' }}>
+        <button type="button" className={`chip ${gradingOn ? 'is-active' : ''}`} onClick={() => setGradingOn((v) => !v)}>
+          {gradingOn ? '✓ ' : '＋ '}Grading add-on
+        </button>
+      </div>
+      {gradingOn && (
+        <input className="biz-input" placeholder="Grading charge ₹ (separate from drying)" value={gradingCharge} onChange={(e) => setGradingCharge(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+      )}
+
+      <input className="biz-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+
       <Button type="submit" disabled={!valid || busy}>{busy ? 'Creating…' : 'Create batch'}</Button>
     </form>
   )
