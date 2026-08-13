@@ -5,6 +5,7 @@ import { GRADE_LABEL } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { Button, ScreenHeading, StatusBanner } from '../shared/ui/components'
+import { BottomSheet } from '../shared/ui/BottomSheet'
 import './business.css'
 
 const gradeLabel = (g: string) => GRADE_LABEL[g as Grade] ?? g
@@ -103,8 +104,8 @@ export function PricingScreen({ canEdit }: { canEdit: boolean }) {
         )}
       </div>
 
-      {adding && canEdit && (
-        <form className="card biz-form" onSubmit={addGrade}>
+      <BottomSheet open={adding && canEdit} onClose={() => setAdding(false)} title="New grade">
+        <form className="biz-form" onSubmit={addGrade}>
           <input className="biz-input" placeholder="Grade code (e.g. AGB-1 or SPECIAL)" value={nw.code} onChange={(e) => setNw((n) => ({ ...n, code: e.target.value }))} />
           <div className="price-fields">
             <label>Sell ₹/kg<input className="price-row-input" inputMode="decimal" value={nw.sell} onChange={(e) => setNw((n) => ({ ...n, sell: e.target.value.replace(/[^\d.]/g, '') }))} /></label>
@@ -113,7 +114,7 @@ export function PricingScreen({ canEdit }: { canEdit: boolean }) {
           </div>
           <Button type="submit" disabled={nw.code.trim().length < 2}>Add grade</Button>
         </form>
-      )}
+      </BottomSheet>
 
       {loading && <div className="empty-state"><p>Loading grades…</p></div>}
       {prices.map((p) => {

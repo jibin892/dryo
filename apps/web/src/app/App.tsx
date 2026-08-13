@@ -11,6 +11,7 @@ import { IntakeScreen } from '../intake/IntakeScreen'
 import { InventoryScreen } from '../inventory/InventoryScreen'
 import { AccountScreen } from '../account/AccountScreen'
 import { TeamScreen } from '../account/TeamScreen'
+import { SettingsScreen } from '../account/SettingsScreen'
 import { PendingScreen } from '../account/PendingScreen'
 import { FarmersScreen } from '../business/FarmersScreen'
 import { SalesScreen } from '../business/SalesScreen'
@@ -24,7 +25,7 @@ import { useDryo } from './store'
 function isRouteAllowed(role: Session['role'], path: string): boolean {
   // Money/admin screens are owner/manager-only (the API enforces this too);
   // every active user may reach the operational screens.
-  if (path === '/team' || path === '/farmers' || path === '/pricing') return canManageMembers(role)
+  if (path === '/team' || path === '/farmers' || path === '/pricing' || path === '/settings') return canManageMembers(role)
   return true
 }
 
@@ -113,6 +114,10 @@ export function App() {
     activePath = '/account'
     content = <PricingScreen canEdit={canManageMembers(session.role)} />
     if (wide === false) mobileDetail = { title: 'Pricing', onBack: () => goBack('/account') }
+  } else if (currentPath === '/settings') {
+    activePath = '/account'
+    content = <SettingsScreen />
+    if (wide === false) mobileDetail = { title: 'Settings', onBack: () => goBack('/account') }
   } else if (currentPath === '/account') {
     content = <AccountScreen session={session} onNavigate={navigate} onLogout={() => { void signOutUser(); logoutOneSignal(); navigate('/') }} />
   } else if (currentPath.startsWith('/batches')) {

@@ -1,72 +1,37 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { PackageCheck, Plus } from 'lucide-react'
 import type { Farmer } from '../shared/contracts'
 import { useDryo, type NewIntakeInput } from '../app/store'
-import { dryoApi } from '../api/dryo'
 import { clockTime } from '../shared/format'
 import { Button, Pill, ScreenHeading, SectionHeader, StatusBanner, Weight } from '../shared/ui/components'
+import { FarmerPicker } from '../shared/ui/FarmerPicker'
+import { BottomSheet } from '../shared/ui/BottomSheet'
 import './intake.css'
 import '../business/business.css'
 
 function NewIntake({ onCreate }: { onCreate: (input: NewIntakeInput) => void }) {
-  const [farmers, setFarmers] = useState<Farmer[]>([])
-  const [farmerSel, setFarmerSel] = useState('')
-  const [newFarmer, setNewFarmer] = useState({ name: '', village: '', phone: '' })
+  const [farmer, setFarmer] = useState<Farmer | null>(null)
   const [weightKg, setWeight] = useState('')
   const [moisturePct, setMoisture] = useState('72')
   const [ratePerKg, setRate] = useState('')
-  const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    dryoApi.listFarmers().then(setFarmers).catch(() => setFarmers([]))
-  }, [])
+  const valid = !!farmer && Number(weightKg) > 0
 
-  const selected = farmers.find((f) => f.id === farmerSel)
-  const chosenName = farmerSel === 'NEW' ? newFarmer.name : selected?.name ?? ''
-  const valid = chosenName.trim().length > 1 && Number(weightKg) > 0
-
-  async function submit(e: FormEvent) {
+  function submit(e: FormEvent) {
     e.preventDefault()
-    setBusy(true)
-    try {
-      let farmerName = ''
-      let village = ''
-      if (farmerSel === 'NEW') {
-        const created = await dryoApi.createFarmer(newFarmer).catch(() => null)
-        farmerName = created?.name ?? newFarmer.name
-        village = created?.village ?? newFarmer.village
-      } else if (selected) {
-        farmerName = selected.name
-        village = selected.village
-      }
-      onCreate({ farmerName, village, weightKg: Number(weightKg), moisturePct: Number(moisturePct) || 72, ratePerKg: Number(ratePerKg) || 0 })
-    } finally {
-      setBusy(false)
-    }
+    if (!farmer) return
+    onCreate({ farmerName: farmer.name, village: farmer.village, weightKg: Number(weightKg), moisturePct: Number(moisturePct) || 72, ratePerKg: Number(ratePerKg) || 0 })
   }
 
   return (
-    <form className="card biz-form" onSubmit={submit}>
-      <select className="biz-select" value={farmerSel} onChange={(e) => setFarmerSel(e.target.value)}>
-        <option value="">Select farmer…</option>
-        {farmers.map((f) => <option key={f.id} value={f.id}>{f.name}{f.village ? ` · ${f.village}` : ''}</option>)}
-        <option value="NEW">＋ Add new farmer</option>
-      </select>
-      {farmerSel === 'NEW' && (
-        <>
-          <input className="biz-input" placeholder="New farmer name" value={newFarmer.name} onChange={(e) => setNewFarmer((n) => ({ ...n, name: e.target.value }))} />
-          <div style={{ display: 'flex', gap: 12 }}>
-            <input className="biz-input" placeholder="Village" value={newFarmer.village} onChange={(e) => setNewFarmer((n) => ({ ...n, village: e.target.value }))} />
-            <input className="biz-input" placeholder="Phone" value={newFarmer.phone} onChange={(e) => setNewFarmer((n) => ({ ...n, phone: e.target.value }))} inputMode="tel" />
-          </div>
-        </>
-      )}
+    <form className="biz-form" onSubmit={submit}>
+      <FarmerPicker value={farmer} onChange={setFarmer} />
       <div style={{ display: 'flex', gap: 12 }}>
         <input className="biz-input" placeholder="Weight kg" value={weightKg} onChange={(e) => setWeight(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
         <input className="biz-input" placeholder="Moisture %" value={moisturePct} onChange={(e) => setMoisture(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
       </div>
       <input className="biz-input" placeholder="Rate ₹/kg green" value={ratePerKg} onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
-      <Button type="submit" disabled={!valid || busy}>{busy ? 'Saving…' : 'Add weigh-in'}</Button>
+      <Button type="submit" disabled={!valid}>Add weigh-in</Button>
     </form>
   )
 }
@@ -98,7 +63,9 @@ export function IntakeScreen() {
         title="Awaiting chamber"
         action={<button className="chip" type="button" onClick={() => setAdding((v) => !v)}><Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New</button>}
       />
-      {adding && <NewIntake onCreate={(input) => { createIntake(input); setAdding(false) }} />}
+      <BottomSheet open={adding} onClose={() => setAdding(false)} title="New weigh-in">
+        <NewIntake onCreate={(input) => { createIntake(input); setAdding(false) }} />
+      </BottomSheet>
       <div className="list-group">
         {pending.map((receipt) => (
           <div key={receipt.id} className="intake-card">

@@ -6,6 +6,8 @@ import { clockTime, stageTone } from '../shared/format'
 import { dryoApi } from '../api/dryo'
 import { useDryo, type NewBatchInput } from '../app/store'
 import { Button, Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner, Weight } from '../shared/ui/components'
+import { BottomSheet } from '../shared/ui/BottomSheet'
+import { FarmerPicker } from '../shared/ui/FarmerPicker'
 import '../business/business.css'
 
 const FILTERS = ['Active', 'Ready', 'All'] as const
@@ -34,12 +36,12 @@ export function BatchesScreen({ selectedId, onSelect }: { selectedId?: string; o
           <Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New batch
         </button>
       </div>
-      {adding && (
+      <BottomSheet open={adding} onClose={() => setAdding(false)} title="New batch">
         <NewBatch
           suggestedLot={`VDM-${1046 + batches.filter((b) => b.lotCode.startsWith('VDM-')).length}`}
           onCreate={(input) => { createBatch(input); setAdding(false) }}
         />
-      )}
+      </BottomSheet>
 
       <div className="chip-row" role="tablist" aria-label="Filter batches">
         {FILTERS.map((option) => (
@@ -75,9 +77,7 @@ export function BatchesScreen({ selectedId, onSelect }: { selectedId?: string; o
 }
 
 function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: (input: NewBatchInput) => void }) {
-  const [farmers, setFarmers] = useState<Farmer[]>([])
-  const [farmerSel, setFarmerSel] = useState('') // farmer id · '' none · 'NEW' add-new
-  const [newFarmer, setNewFarmer] = useState({ name: '', village: '', phone: '' })
+  const [farmer, setFarmer] = useState<Farmer | null>(null)
   const [lotCode, setLotCode] = useState(suggestedLot)
   const [ownership, setOwnership] = useState<'OWN' | 'JOBWORK'>('OWN')
   const [greenWeightKg, setGreen] = useState('')
@@ -89,12 +89,10 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
   const [chamberSel, setChamberSel] = useState('')
   const [gradingOn, setGradingOn] = useState(false)
   const [gradingCharge, setGradingCharge] = useState('')
-  const [busy, setBusy] = useState(false)
   const chambers = useDryo((s) => s.chambers)
   const idleChambers = chambers.filter((c) => c.status === 'IDLE')
 
   useEffect(() => {
-    dryoApi.listFarmers().then(setFarmers).catch(() => setFarmers([]))
     dryoApi.listPricing().then(setPrices).catch(() => setPrices([]))
   }, [])
 
@@ -108,69 +106,34 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
 
   const gradePrice = prices.find((p) => p.grade === grade)
   const estDried = gradePrice && Number(greenWeightKg) > 0 ? Math.round(Number(greenWeightKg) * gradePrice.yieldRatio) : null
-  const selectedFarmer = farmers.find((f) => f.id === farmerSel)
-  const chosenName = farmerSel === 'NEW' ? newFarmer.name : selectedFarmer?.name ?? ''
-  const valid = lotCode.trim().length > 0 && chosenName.trim().length > 1 && Number(greenWeightKg) > 0
+  const valid = lotCode.trim().length > 0 && !!farmer && Number(greenWeightKg) > 0
 
-  async function submit(e: FormEvent) {
+  function submit(e: FormEvent) {
     e.preventDefault()
-    setBusy(true)
-    try {
-      let farmerId: string | undefined
-      let farmerName = ''
-      let village = ''
-      if (farmerSel === 'NEW') {
-        const created = await dryoApi.createFarmer(newFarmer).catch(() => null)
-        farmerId = created?.id
-        farmerName = created?.name ?? newFarmer.name
-        village = created?.village ?? newFarmer.village
-      } else if (selectedFarmer) {
-        farmerId = selectedFarmer.id
-        farmerName = selectedFarmer.name
-        village = selectedFarmer.village
-      }
-      const value = Number(rate) || 0
-      onCreate({
-        lotCode: lotCode.trim(),
-        farmerName,
-        village,
-        greenWeightKg: Number(greenWeightKg),
-        currentMoisture: Number(currentMoisture) || 72,
-        ratePerKg: ownership === 'OWN' ? value : 0,
-        curingRatePerKg: ownership === 'JOBWORK' ? value : 0,
-        farmerId,
-        ownership,
-        grade: grade || undefined,
-        note: note.trim() || undefined,
-        chamberId: chamberSel || undefined,
-        gradingCharge: gradingOn ? Number(gradingCharge) || 0 : 0,
-      })
-    } finally {
-      setBusy(false)
-    }
+    if (!farmer) return
+    const value = Number(rate) || 0
+    onCreate({
+      lotCode: lotCode.trim(),
+      farmerName: farmer.name,
+      village: farmer.village,
+      farmerId: farmer.id,
+      greenWeightKg: Number(greenWeightKg),
+      currentMoisture: Number(currentMoisture) || 72,
+      ratePerKg: ownership === 'OWN' ? value : 0,
+      curingRatePerKg: ownership === 'JOBWORK' ? value : 0,
+      ownership,
+      grade: grade || undefined,
+      note: note.trim() || undefined,
+      chamberId: chamberSel || undefined,
+      gradingCharge: gradingOn ? Number(gradingCharge) || 0 : 0,
+    })
   }
 
   return (
-    <form className="card biz-form" onSubmit={submit}>
+    <form className="biz-form" onSubmit={submit}>
       <input className="biz-input" placeholder="Lot code" value={lotCode} onChange={(e) => setLotCode(e.target.value)} />
 
-      <select className="biz-select" value={farmerSel} onChange={(e) => setFarmerSel(e.target.value)}>
-        <option value="">Select farmer…</option>
-        {farmers.map((f) => (
-          <option key={f.id} value={f.id}>{f.name}{f.village ? ` · ${f.village}` : ''}</option>
-        ))}
-        <option value="NEW">＋ Add new farmer</option>
-      </select>
-
-      {farmerSel === 'NEW' && (
-        <>
-          <input className="biz-input" placeholder="New farmer name" value={newFarmer.name} onChange={(e) => setNewFarmer((n) => ({ ...n, name: e.target.value }))} />
-          <div style={{ display: 'flex', gap: 12 }}>
-            <input className="biz-input" placeholder="Village" value={newFarmer.village} onChange={(e) => setNewFarmer((n) => ({ ...n, village: e.target.value }))} />
-            <input className="biz-input" placeholder="Phone" value={newFarmer.phone} onChange={(e) => setNewFarmer((n) => ({ ...n, phone: e.target.value }))} inputMode="tel" />
-          </div>
-        </>
-      )}
+      <FarmerPicker value={farmer} onChange={setFarmer} />
 
       <div className="chip-row" style={{ padding: '2px 0' }}>
         {(['OWN', 'JOBWORK'] as const).map((o) => (
@@ -223,7 +186,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
 
       <input className="biz-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
 
-      <Button type="submit" disabled={!valid || busy}>{busy ? 'Creating…' : 'Create batch'}</Button>
+      <Button type="submit" disabled={!valid}>Create batch</Button>
     </form>
   )
 }

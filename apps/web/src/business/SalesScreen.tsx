@@ -5,6 +5,7 @@ import { GRADE_LABEL } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { Button, ListRow, ScreenHeading, SectionHeader, StatusBanner } from '../shared/ui/components'
+import { BottomSheet } from '../shared/ui/BottomSheet'
 import { clockTime } from '../shared/format'
 import { money } from './FarmersScreen'
 import './business.css'
@@ -49,7 +50,9 @@ export function SalesScreen() {
       <div className="section-header"><h2>Record</h2>
         <button className="chip" type="button" onClick={() => setAdding((v) => !v)}><Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New sale</button>
       </div>
-      {adding && <NewSale prices={prices} onDone={() => { setAdding(false); void refresh() }} />}
+      <BottomSheet open={adding} onClose={() => setAdding(false)} title="New sale">
+        <NewSale prices={prices} onDone={() => { setAdding(false); void refresh() }} />
+      </BottomSheet>
 
       <SectionHeader title="History" />
       <div className="list-group">

@@ -1,4 +1,4 @@
-import { Bell, Building2, LogOut, PackageCheck, ShieldCheck, Smartphone, Tag, Users, UserRound, Warehouse, Wheat } from 'lucide-react'
+import { Bell, Building2, LogOut, PackageCheck, ShieldCheck, SlidersHorizontal, Smartphone, Tag, Users, UserRound, Warehouse, Wheat } from 'lucide-react'
 import type { Session } from '../shared/contracts'
 import { canManageMembers } from '../shared/contracts'
 import { promptOneSignal } from '../notifications/oneSignal'
@@ -71,6 +71,12 @@ export function AccountScreen({
               title="Pricing"
               subtitle="Selling rate per grade"
               onClick={() => onNavigate('/pricing')}
+            />
+            <ListRow
+              lead={<SlidersHorizontal aria-hidden="true" size={20} />}
+              title="House settings"
+              subtitle="Name, curing rate, GST"
+              onClick={() => onNavigate('/settings')}
             />
           </div>
         </>

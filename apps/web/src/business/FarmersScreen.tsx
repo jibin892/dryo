@@ -4,6 +4,7 @@ import type { Farmer, FarmerDetail, FarmerTransactionType } from '../shared/cont
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { Button, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner } from '../shared/ui/components'
+import { BottomSheet } from '../shared/ui/BottomSheet'
 import { relativeTime } from '../shared/format'
 import './business.css'
 
@@ -64,7 +65,9 @@ export function FarmersScreen() {
       <div className="section-header"><h2>Farmers{farmers.length ? ` · ${farmers.length}` : ''}</h2>
         <button className="chip" type="button" onClick={() => setAdding((v) => !v)}><Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New</button>
       </div>
-      {adding && <AddFarmer onDone={() => { setAdding(false); void refresh() }} />}
+      <BottomSheet open={adding} onClose={() => setAdding(false)} title="New farmer">
+        <AddFarmer onDone={() => { setAdding(false); void refresh() }} />
+      </BottomSheet>
 
       <div className="list-group">
         {loading && <div className="empty-state"><p>Loading farmers…</p></div>}
