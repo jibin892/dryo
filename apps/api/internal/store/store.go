@@ -458,7 +458,13 @@ func (s *Store) settleReady(ctx context.Context, tx pgx.Tx, b Batch) error {
 	graded := b.Grade != nil && *b.Grade != ""
 
 	if b.Ownership == "OWN" {
-		if graded && dried > 0 {
+		if dried > 0 {
+			// Graded stock lands in its grade bucket; ungraded own stock lands in
+			// a generic UNGRADED / mixed bucket so it stays sellable.
+			bucket := "UNGRADED"
+			if graded {
+				bucket = *b.Grade
+			}
 			cost := 0.0
 			if b.RatePerKg > 0 {
 				cost = math.Round(b.GreenWeightKg * b.RatePerKg / dried)
@@ -467,7 +473,7 @@ func (s *Store) settleReady(ctx context.Context, tx pgx.Tx, b Batch) error {
 			if moisture == 0 {
 				moisture = 10
 			}
-			if _, err := tx.Exec(ctx, invUpsertSQL, *b.Grade, dried, moisture, cost); err != nil {
+			if _, err := tx.Exec(ctx, invUpsertSQL, bucket, dried, moisture, cost); err != nil {
 				return err
 			}
 		}

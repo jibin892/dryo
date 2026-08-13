@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Coins, TrendingUp, Warehouse } from 'lucide-react'
 import type { GradePrice, InventoryLot } from '../shared/contracts'
-import { GRADE_LABEL } from '../shared/contracts'
+import { gradeLabel } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { useDryo } from '../app/store'
@@ -70,7 +70,7 @@ export function InventoryScreen({ canEdit = false }: { canEdit?: boolean }) {
             <div key={lot.grade} className="inv-row">
               <div className="inv-row-head">
                 <div>
-                  <p className="list-row-title">{GRADE_LABEL[lot.grade]}</p>
+                  <p className="list-row-title">{gradeLabel(lot.grade)}</p>
                   <p className="list-row-subtitle">{lot.bulkKg} kg · {lot.bags} bags · {lot.avgMoisture}% moisture</p>
                 </div>
                 <span className={`metric metric-sm ${marginKg >= 0 ? 'biz-credit' : 'biz-debit'}`}>{marginKg >= 0 ? '+' : '−'}{money(marginKg)}/kg</span>

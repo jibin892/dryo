@@ -62,6 +62,12 @@ export const GRADE_LABEL: Record<Grade, string> = {
   REJECT: 'Reject / Light',
 }
 
+// Stock/sale grade can also be the generic bucket for own stock sold ungraded.
+export const UNGRADED = 'UNGRADED'
+export type StockGrade = Grade | typeof UNGRADED
+export const gradeLabel = (g: string): string =>
+  GRADE_LABEL[g as Grade] ?? (g === UNGRADED ? 'Ungraded / mixed' : g)
+
 export type Batch = {
   id: string
   lotCode: string
@@ -122,7 +128,7 @@ export type IntakeReceipt = {
 }
 
 export type InventoryLot = {
-  grade: Grade
+  grade: StockGrade
   bulkKg: number
   bags: number
   location: string
@@ -170,7 +176,7 @@ export type Sale = {
   id: string
   buyerName: string
   channel: SaleChannel
-  grade: Grade
+  grade: StockGrade
   quantityKg: number
   ratePerKg: number
   amount: number

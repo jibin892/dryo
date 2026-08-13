@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Gavel, Plus, Receipt, Store } from 'lucide-react'
-import type { Grade, GradePrice, InventoryLot, Sale, SaleChannel } from '../shared/contracts'
-import { GRADE_LABEL } from '../shared/contracts'
+import type { GradePrice, InventoryLot, Sale, SaleChannel, StockGrade } from '../shared/contracts'
+import { UNGRADED, gradeLabel } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { Button, ListRow, ScreenHeading, SectionHeader, StatusBanner } from '../shared/ui/components'
@@ -10,7 +10,7 @@ import { clockTime } from '../shared/format'
 import { money } from './FarmersScreen'
 import './business.css'
 
-const GRADES: Grade[] = ['AGEB', 'AGB', 'AGS', 'AGES', 'REJECT']
+const SELL_GRADES: StockGrade[] = ['AGEB', 'AGB', 'AGS', 'AGES', 'REJECT', UNGRADED]
 
 export function SalesScreen() {
   const [sales, setSales] = useState<Sale[]>([])
@@ -77,7 +77,7 @@ export function SalesScreen() {
 function NewSale({ prices, inventory, onDone }: { prices: GradePrice[]; inventory: InventoryLot[]; onDone: () => void }) {
   const [buyerName, setBuyerName] = useState('')
   const [channel, setChannel] = useState<SaleChannel>('DIRECT')
-  const [grade, setGrade] = useState<Grade>('AGEB')
+  const [grade, setGrade] = useState<StockGrade>('AGEB')
   const [quantityKg, setQuantityKg] = useState('')
   const [rate, setRate] = useState('')
   const [busy, setBusy] = useState(false)
@@ -108,8 +108,8 @@ function NewSale({ prices, inventory, onDone }: { prices: GradePrice[]; inventor
           <button key={c} type="button" className={`chip ${channel === c ? 'is-active' : ''}`} onClick={() => setChannel(c)}>{c === 'DIRECT' ? 'Direct' : 'Auction'}</button>
         ))}
       </div>
-      <select className="biz-select" value={grade} onChange={(e) => setGrade(e.target.value as Grade)}>
-        {GRADES.map((g) => <option key={g} value={g}>{GRADE_LABEL[g]}</option>)}
+      <select className="biz-select" value={grade} onChange={(e) => setGrade(e.target.value as StockGrade)}>
+        {SELL_GRADES.map((g) => <option key={g} value={g}>{gradeLabel(g)}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 12 }}>
         <input className="biz-input" placeholder="Quantity (kg)" value={quantityKg} onChange={(e) => setQuantityKg(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
