@@ -115,7 +115,13 @@
 }
 
 .nav-item[aria-current='page'] {
-  color: var(--text-primary);
+  color: var(--accent);
+}
+
+/* Keep keyboard focus visible, but inset it so a tapped bottom-nav item
+   doesn't show a detached box floating around the icon + label. */
+.bottom-navigation .nav-item:focus-visible {
+  outline-offset: -2px;
 }
 
 .navigation-rail {
