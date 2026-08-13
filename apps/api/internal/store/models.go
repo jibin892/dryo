@@ -60,10 +60,11 @@ type Batch struct {
 	Grade           *string   `json:"grade"           db:"grade"`
 	RatePerKg       float64   `json:"ratePerKg"       db:"rate_per_kg"`
 	Note            *string   `json:"note"            db:"note"`
-	Ownership       string    `json:"ownership"       db:"ownership"`
-	FarmerID        *string   `json:"farmerId"        db:"farmer_id"`
-	CuringRatePerKg float64   `json:"curingRatePerKg" db:"curing_rate_per_kg"`
-	GradingCharge   float64   `json:"gradingCharge"   db:"grading_charge"`
+	Ownership       string     `json:"ownership"       db:"ownership"`
+	FarmerID        *string    `json:"farmerId"        db:"farmer_id"`
+	CuringRatePerKg float64    `json:"curingRatePerKg" db:"curing_rate_per_kg"`
+	GradingCharge   float64    `json:"gradingCharge"   db:"grading_charge"`
+	SettledAt       *time.Time `json:"settledAt"       db:"settled_at"`
 }
 
 type Chamber struct {

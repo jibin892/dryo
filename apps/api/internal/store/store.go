@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -167,7 +168,7 @@ func (s *Store) RevokeInvitation(ctx context.Context, id string) error {
 
 const batchCols = `id, lot_code, farmer_name, village, green_weight_kg, dried_weight_kg,
 	chamber_id, stage, started_at, target_moisture, current_moisture, grade, rate_per_kg, note,
-	ownership, farmer_id, curing_rate_per_kg, grading_charge`
+	ownership, farmer_id, curing_rate_per_kg, grading_charge, settled_at`
 
 var stageOrder = []string{"INTAKE", "DRYING", "CURING", "GRADING", "READY", "DISPATCHED"}
 
@@ -221,7 +222,14 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 		return Batch{}, err
 	}
 	if loadChamber {
-		if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2 WHERE id=$1`, *b.ChamberID, b.ID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1`, *b.ChamberID, b.ID, out.GreenWeightKg); err != nil {
+			return Batch{}, err
+		}
+	}
+	// Own purchase → post what the house owes the farmer for the green.
+	if out.Ownership == "OWN" && out.RatePerKg > 0 {
+		amt := math.Round(out.GreenWeightKg * out.RatePerKg)
+		if err := postFarmerTx(ctx, tx, out.FarmerID, "PURCHASE", amt, "Green purchase · "+out.LotCode, out.ID); err != nil {
 			return Batch{}, err
 		}
 	}
@@ -316,7 +324,16 @@ func (s *Store) AdvanceBatch(ctx context.Context, id string) (Batch, error) {
 
 	next := nextStage(b.Stage)
 	if next == "GRADING" && b.DriedWeightKg == nil {
-		dried := math.Round(b.GreenWeightKg * 0.2)
+		// Estimate dried weight from the grade's green→dried yield when known,
+		// falling back to the industry ~20% for ungraded lots.
+		ratio := 0.20
+		if b.Grade != nil && *b.Grade != "" {
+			var yr float64
+			if err := tx.QueryRow(ctx, `SELECT yield_ratio FROM grade_prices WHERE grade=$1`, *b.Grade).Scan(&yr); err == nil && yr > 0 {
+				ratio = yr
+			}
+		}
+		dried := math.Round(b.GreenWeightKg * ratio)
 		b.DriedWeightKg = &dried
 		b.ChamberID = nil
 		if _, err := tx.Exec(ctx,
@@ -332,6 +349,20 @@ func (s *Store) AdvanceBatch(ctx context.Context, id string) (Batch, error) {
 	if err != nil {
 		return Batch{}, err
 	}
+
+	// One-time settlement the first time a batch lands on READY: OWN stock joins
+	// inventory, job-work is billed to the farmer. settled_at guards re-runs.
+	if out.Stage == "READY" && out.SettledAt == nil {
+		if err := s.settleReady(ctx, tx, out); err != nil {
+			return Batch{}, err
+		}
+		now := time.Now()
+		if _, err := tx.Exec(ctx, `UPDATE batches SET settled_at=now() WHERE id=$1`, id); err != nil {
+			return Batch{}, err
+		}
+		out.SettledAt = &now
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return Batch{}, err
 	}
@@ -354,7 +385,7 @@ func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string) (Batch
 	} else if err != nil {
 		return Batch{}, err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2 WHERE id=$1`, chamberID, batchID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1`, chamberID, batchID, out.GreenWeightKg); err != nil {
 		return Batch{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -373,6 +404,86 @@ func nextStage(stage string) string {
 		}
 	}
 	return stage
+}
+
+// postFarmerTx inserts a signed ledger row inside the given tx, but only when
+// the batch actually names a real farmer (farmer_transactions.farmer_id has a
+// FK to farmers, so a stray id would abort the whole transaction) and the
+// amount is non-zero. Amount sign follows the house's books: + house owes the
+// farmer (purchase), - farmer owes the house (curing/grading charge).
+func postFarmerTx(ctx context.Context, tx pgx.Tx, farmerID *string, txType string, amount float64, note, batchID string) error {
+	if farmerID == nil || *farmerID == "" || amount == 0 {
+		return nil
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM farmers WHERE id=$1)`, *farmerID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err := tx.Exec(ctx,
+		`INSERT INTO farmer_transactions (id, farmer_id, type, amount, note, batch_id)
+		 VALUES ($1,$2,$3,$4,$5,$6)`,
+		newID("ftx"), *farmerID, txType, amount, note, batchID)
+	return err
+}
+
+// invUpsertSQL adds a finished lot to graded inventory, keeping running
+// weighted averages for moisture and cost basis.
+const invUpsertSQL = `
+	INSERT INTO inventory_lots (grade, bulk_kg, avg_moisture, cost_per_kg)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (grade) DO UPDATE SET
+	  bulk_kg = inventory_lots.bulk_kg + EXCLUDED.bulk_kg,
+	  avg_moisture = CASE WHEN inventory_lots.bulk_kg + EXCLUDED.bulk_kg > 0
+	    THEN (inventory_lots.bulk_kg * inventory_lots.avg_moisture + EXCLUDED.bulk_kg * EXCLUDED.avg_moisture)
+	         / (inventory_lots.bulk_kg + EXCLUDED.bulk_kg)
+	    ELSE EXCLUDED.avg_moisture END,
+	  cost_per_kg = CASE WHEN inventory_lots.bulk_kg + EXCLUDED.bulk_kg > 0
+	    THEN (inventory_lots.bulk_kg * inventory_lots.cost_per_kg + EXCLUDED.bulk_kg * EXCLUDED.cost_per_kg)
+	         / (inventory_lots.bulk_kg + EXCLUDED.bulk_kg)
+	    ELSE EXCLUDED.cost_per_kg END`
+
+// settleReady runs the one-time posting when a batch reaches READY:
+//   - OWN + graded  → dried stock joins house inventory for that grade
+//     (OWN + ungraded has no grade bucket to land in, so it waits for a grade)
+//   - JOBWORK        → farmer is billed for curing (+ grading add-on if graded);
+//     the dried goods themselves belong to the farmer, not house inventory.
+func (s *Store) settleReady(ctx context.Context, tx pgx.Tx, b Batch) error {
+	dried := 0.0
+	if b.DriedWeightKg != nil {
+		dried = *b.DriedWeightKg
+	}
+	graded := b.Grade != nil && *b.Grade != ""
+
+	if b.Ownership == "OWN" {
+		if graded && dried > 0 {
+			cost := 0.0
+			if b.RatePerKg > 0 {
+				cost = math.Round(b.GreenWeightKg * b.RatePerKg / dried)
+			}
+			moisture := b.TargetMoisture
+			if moisture == 0 {
+				moisture = 10
+			}
+			if _, err := tx.Exec(ctx, invUpsertSQL, *b.Grade, dried, moisture, cost); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// JOBWORK: bill curing on the green weight, plus the grading add-on if graded.
+	charge := b.GreenWeightKg * b.CuringRatePerKg
+	note := "Curing charge · " + b.LotCode
+	if graded {
+		charge += b.GradingCharge
+		if b.GradingCharge > 0 {
+			note = "Curing + grading · " + b.LotCode
+		}
+	}
+	return postFarmerTx(ctx, tx, b.FarmerID, "JOBWORK_CHARGE", -math.Round(charge), note, b.ID)
 }
 
 // ─────────────────────────── Chambers ───────────────────────────
@@ -506,6 +617,13 @@ func (s *Store) LoadIntake(ctx context.Context, receiptID, chamberID string) (Ba
 	}
 	if res.RowsAffected() == 0 {
 		return Batch{}, fmt.Errorf("%w: chamber not idle/available", ErrNotFound)
+	}
+	// Intake is an own-purchase weigh-in → post what the house owes the farmer.
+	if batch.RatePerKg > 0 {
+		amt := math.Round(batch.GreenWeightKg * batch.RatePerKg)
+		if err := postFarmerTx(ctx, tx, batch.FarmerID, "PURCHASE", amt, "Green purchase · "+batch.LotCode, batch.ID); err != nil {
+			return Batch{}, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Batch{}, err

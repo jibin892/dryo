@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Gavel, Plus, Receipt, Store } from 'lucide-react'
-import type { Grade, GradePrice, Sale, SaleChannel } from '../shared/contracts'
+import type { Grade, GradePrice, InventoryLot, Sale, SaleChannel } from '../shared/contracts'
 import { GRADE_LABEL } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
@@ -15,15 +15,17 @@ const GRADES: Grade[] = ['AGEB', 'AGB', 'AGS', 'AGES', 'REJECT']
 export function SalesScreen() {
   const [sales, setSales] = useState<Sale[]>([])
   const [prices, setPrices] = useState<GradePrice[]>([])
+  const [inventory, setInventory] = useState<InventoryLot[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
   async function refresh() {
     try {
-      const [s, p] = await Promise.all([dryoApi.listSales(), dryoApi.listPricing()])
+      const [s, p, inv] = await Promise.all([dryoApi.listSales(), dryoApi.listPricing(), dryoApi.listInventory()])
       setSales(s)
       setPrices(p)
+      setInventory(inv)
       setError(null)
     } catch (err) {
       setError(err instanceof ApiError && err.status === 0 ? 'Start the Dryo API to record sales.' : 'Could not load sales.')
@@ -51,7 +53,7 @@ export function SalesScreen() {
         <button className="chip" type="button" onClick={() => setAdding((v) => !v)}><Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New sale</button>
       </div>
       <BottomSheet open={adding} onClose={() => setAdding(false)} title="New sale">
-        <NewSale prices={prices} onDone={() => { setAdding(false); void refresh() }} />
+        <NewSale prices={prices} inventory={inventory} onDone={() => { setAdding(false); void refresh() }} />
       </BottomSheet>
 
       <SectionHeader title="History" />
@@ -72,7 +74,7 @@ export function SalesScreen() {
   )
 }
 
-function NewSale({ prices, onDone }: { prices: GradePrice[]; onDone: () => void }) {
+function NewSale({ prices, inventory, onDone }: { prices: GradePrice[]; inventory: InventoryLot[]; onDone: () => void }) {
   const [buyerName, setBuyerName] = useState('')
   const [channel, setChannel] = useState<SaleChannel>('DIRECT')
   const [grade, setGrade] = useState<Grade>('AGEB')
@@ -83,6 +85,8 @@ function NewSale({ prices, onDone }: { prices: GradePrice[]; onDone: () => void 
   const priceForGrade = useMemo(() => prices.find((p) => p.grade === grade)?.sellRatePerKg ?? 0, [prices, grade])
   useEffect(() => { if (priceForGrade) setRate(String(priceForGrade)) }, [priceForGrade])
 
+  const inStore = useMemo(() => inventory.find((l) => l.grade === grade)?.bulkKg ?? 0, [inventory, grade])
+  const oversell = Number(quantityKg) > inStore
   const amount = (Number(quantityKg) || 0) * (Number(rate) || 0)
 
   async function submit(e: FormEvent) {
@@ -111,6 +115,11 @@ function NewSale({ prices, onDone }: { prices: GradePrice[]; onDone: () => void 
         <input className="biz-input" placeholder="Quantity (kg)" value={quantityKg} onChange={(e) => setQuantityKg(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
         <input className="biz-input" placeholder="₹ / kg" value={rate} onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
       </div>
+      <p className="detail-sub" style={{ padding: '0 4px', color: oversell ? 'var(--status-warning)' : undefined }}>
+        {oversell
+          ? `Only ${inStore.toLocaleString('en-IN')} kg of ${grade} in store — selling more will draw it to zero.`
+          : `In store: ${inStore.toLocaleString('en-IN')} kg ${grade}`}
+      </p>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span className="detail-sub">Amount</span>
         <span className="metric metric-md">{money(amount)}</span>

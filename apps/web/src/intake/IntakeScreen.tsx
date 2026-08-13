@@ -51,7 +51,7 @@ export function IntakeScreen() {
 
   return (
     <>
-      <ScreenHeading eyebrow="Green cardamom" title="Intake" description="Weigh-in from farmers and estates, ready to load into a chamber." />
+      <ScreenHeading eyebrow="Green cardamom" title="Intake" description="Own-purchase weigh-in from farmers, ready to load into a chamber. For job-work lots, use New batch on the Batches screen." />
 
       <StatusBanner tone={pending.length ? 'warning' : 'positive'}>
         {pending.length
