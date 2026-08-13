@@ -14,6 +14,7 @@ export type NewIntakeInput = {
   weightKg: number
   moisturePct: number
   ratePerKg: number
+  farmerId?: string
 }
 
 export type NewChamberInput = {
@@ -166,6 +167,7 @@ export const useDryo = create<DryoState>((set) => ({
       ratePerKg: input.ratePerKg,
       receivedAt: new Date().toISOString(),
       status: 'PENDING',
+      farmerId: input.farmerId ?? null,
     }
     set((state) => ({ intake: [optimistic, ...state.intake] }))
     void dryoApi
@@ -174,14 +176,23 @@ export const useDryo = create<DryoState>((set) => ({
       .catch(() => undefined)
   },
 
+  // Loading an intake creates a DRYING batch from it and occupies the chamber.
   loadIntake: (id, chamberId) => {
     set((state) => ({
       intake: state.intake.map((receipt) => (receipt.id === id ? { ...receipt, status: 'LOADED' } : receipt)),
       chambers: state.chambers.map((chamber) =>
-        chamber.id === chamberId ? { ...chamber, status: 'HEATING', batchId: id } : chamber,
+        chamber.id === chamberId ? { ...chamber, status: 'DRYING', batchId: id } : chamber,
       ),
     }))
-    void dryoApi.loadIntake(id, chamberId).catch(() => undefined)
+    void dryoApi
+      .loadIntake(id, chamberId)
+      .then((batch) =>
+        set((state) => ({
+          batches: [batch, ...state.batches.filter((b) => b.id !== batch.id)],
+          chambers: state.chambers.map((c) => (c.id === chamberId ? { ...c, batchId: batch.id } : c)),
+        })),
+      )
+      .catch(() => undefined)
   },
 
   toggleChamber: (id) => {

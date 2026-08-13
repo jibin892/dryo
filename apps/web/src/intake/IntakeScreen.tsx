@@ -20,7 +20,7 @@ function NewIntake({ onCreate }: { onCreate: (input: NewIntakeInput) => void }) 
   function submit(e: FormEvent) {
     e.preventDefault()
     if (!farmer) return
-    onCreate({ farmerName: farmer.name, village: farmer.village, weightKg: Number(weightKg), moisturePct: Number(moisturePct) || 72, ratePerKg: Number(ratePerKg) || 0 })
+    onCreate({ farmerName: farmer.name, village: farmer.village, farmerId: farmer.id, weightKg: Number(weightKg), moisturePct: Number(moisturePct) || 72, ratePerKg: Number(ratePerKg) || 0 })
   }
 
   return (

@@ -35,7 +35,7 @@ export const dryoApi = {
 
   listIntake: () => api.get<IntakeReceipt[]>('/intake'),
   createIntake: (input: Partial<IntakeReceipt>) => api.post<IntakeReceipt>('/intake', input),
-  loadIntake: (id: string, chamberId: string) => api.post<Chamber>(`/intake/${id}/load`, { chamberId }),
+  loadIntake: (id: string, chamberId: string) => api.post<Batch>(`/intake/${id}/load`, { chamberId }),
 
   listInventory: () => api.get<InventoryLot[]>('/inventory'),
   updateInventory: (grade: string, input: { costPerKg: number; location?: string }) =>

@@ -359,7 +359,7 @@ func (a *API) loadIntake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "chamberId is required")
 		return
 	}
-	c, err := a.store.LoadIntake(r.Context(), chi.URLParam(r, "id"), body.ChamberID)
+	batch, err := a.store.LoadIntake(r.Context(), chi.URLParam(r, "id"), body.ChamberID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusConflict, "receipt or chamber not available")
 		return
@@ -367,8 +367,8 @@ func (a *API) loadIntake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load intake")
 		return
 	}
-	a.notify.Push("Chamber "+c.Name, "Loaded and heating")
-	writeJSON(w, http.StatusOK, c)
+	a.notify.Push("Batch "+batch.LotCode, "Loaded from intake — drying")
+	writeJSON(w, http.StatusOK, batch)
 }
 
 // ── Inventory ──

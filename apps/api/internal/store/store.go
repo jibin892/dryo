@@ -439,7 +439,7 @@ func (s *Store) ToggleChamber(ctx context.Context, id string) (Chamber, error) {
 
 // ─────────────────────────── Intake ───────────────────────────
 
-const intakeCols = `id, farmer_name, village, weight_kg, moisture_pct, rate_per_kg, received_at, status`
+const intakeCols = `id, farmer_name, village, weight_kg, moisture_pct, rate_per_kg, received_at, status, farmer_id`
 
 func (s *Store) ListIntake(ctx context.Context) ([]IntakeReceipt, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+intakeCols+` FROM intake_receipts ORDER BY received_at DESC`)
@@ -454,38 +454,63 @@ func (s *Store) CreateIntake(ctx context.Context, r IntakeReceipt) (IntakeReceip
 		r.ID = newID("in")
 	}
 	return scanOneIntake(ctx, s.pool,
-		`INSERT INTO intake_receipts (id, farmer_name, village, weight_kg, moisture_pct, rate_per_kg, status)
-		 VALUES ($1,$2,$3,$4,$5,$6,'PENDING') RETURNING `+intakeCols,
-		r.ID, r.FarmerName, r.Village, r.WeightKg, r.MoisturePct, r.RatePerKg)
+		`INSERT INTO intake_receipts (id, farmer_name, village, weight_kg, moisture_pct, rate_per_kg, status, farmer_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,'PENDING',$7) RETURNING `+intakeCols,
+		r.ID, r.FarmerName, r.Village, r.WeightKg, r.MoisturePct, r.RatePerKg, r.FarmerID)
 }
 
-// LoadIntake marks a receipt LOADED and assigns it to a heating chamber.
-func (s *Store) LoadIntake(ctx context.Context, receiptID, chamberID string) (Chamber, error) {
+// LoadIntake marks a receipt LOADED, creates a DRYING batch from it, and
+// occupies the chamber — one continuous flow. Returns the new batch.
+func (s *Store) LoadIntake(ctx context.Context, receiptID, chamberID string) (Batch, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return Chamber{}, err
+		return Batch{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	tag, err := tx.Exec(ctx, `UPDATE intake_receipts SET status='LOADED' WHERE id=$1 AND status='PENDING'`, receiptID)
-	if err != nil {
-		return Chamber{}, err
-	}
-	if tag.RowsAffected() == 0 {
-		return Chamber{}, ErrNotFound
-	}
-	c, err := scanOneChamber(ctx, tx,
-		`UPDATE chambers SET status='HEATING', batch_id=$2 WHERE id=$1 AND status='IDLE' RETURNING `+chamberCols,
-		chamberID, receiptID)
+	rec, err := scanOneIntake(ctx, tx,
+		`SELECT `+intakeCols+` FROM intake_receipts WHERE id=$1 AND status='PENDING' FOR UPDATE`, receiptID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Chamber{}, fmt.Errorf("%w: chamber not idle/available", ErrNotFound)
+		return Batch{}, ErrNotFound
 	} else if err != nil {
-		return Chamber{}, err
+		return Batch{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE intake_receipts SET status='LOADED' WHERE id=$1`, receiptID); err != nil {
+		return Batch{}, err
+	}
+
+	// Next sequential lot code (VDM-####).
+	var nextNum int
+	if err := tx.QueryRow(ctx,
+		`SELECT COALESCE(MAX(NULLIF(regexp_replace(lot_code, '\D', '', 'g'), '')::int), 1045) + 1
+		 FROM batches WHERE lot_code LIKE 'VDM-%'`).Scan(&nextNum); err != nil {
+		nextNum = 1046
+	}
+	lotCode := fmt.Sprintf("VDM-%d", nextNum)
+
+	batchID := newID("bt")
+	batch, err := scanOneBatch(ctx, tx,
+		`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, chamber_id, stage,
+		   target_moisture, current_moisture, rate_per_kg, ownership, farmer_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,'DRYING',10,$7,$8,'OWN',$9) RETURNING `+batchCols,
+		batchID, lotCode, rec.FarmerName, rec.Village, rec.WeightKg, chamberID, rec.MoisturePct, rec.RatePerKg, rec.FarmerID)
+	if err != nil {
+		return Batch{}, err
+	}
+
+	res, err := tx.Exec(ctx,
+		`UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1 AND status='IDLE'`,
+		chamberID, batchID, rec.WeightKg)
+	if err != nil {
+		return Batch{}, err
+	}
+	if res.RowsAffected() == 0 {
+		return Batch{}, fmt.Errorf("%w: chamber not idle/available", ErrNotFound)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Chamber{}, err
+		return Batch{}, err
 	}
-	return c, nil
+	return batch, nil
 }
 
 // ─────────────────────────── Inventory ───────────────────────────

@@ -91,6 +91,7 @@ type IntakeReceipt struct {
 	RatePerKg   float64   `json:"ratePerKg"   db:"rate_per_kg"`
 	ReceivedAt  time.Time `json:"receivedAt"  db:"received_at"`
 	Status      string    `json:"status"      db:"status"`
+	FarmerID    *string   `json:"farmerId"    db:"farmer_id"`
 }
 
 type InventoryLot struct {

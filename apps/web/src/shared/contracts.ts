@@ -118,6 +118,7 @@ export type IntakeReceipt = {
   ratePerKg: number
   receivedAt: string
   status: 'PENDING' | 'LOADED'
+  farmerId?: string | null
 }
 
 export type InventoryLot = {
