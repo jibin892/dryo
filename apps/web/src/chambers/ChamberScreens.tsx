@@ -1,9 +1,43 @@
-import { CalendarClock, Flame, PlayCircle, Power, ThermometerSun, Timer, TriangleAlert, Wind } from 'lucide-react'
-import type { Chamber } from '../shared/contracts'
+import { useState, type FormEvent } from 'react'
+import { CalendarClock, Flame, PlayCircle, Plus, Power, ThermometerSun, Timer, TriangleAlert, Wind } from 'lucide-react'
+import type { Chamber, ChamberType } from '../shared/contracts'
 import { CHAMBER_TYPE_LABEL } from '../shared/contracts'
 import { chamberTone, clockTime } from '../shared/format'
-import { useDryo } from '../app/store'
+import { useDryo, type NewChamberInput } from '../app/store'
 import { Button, Gauge, ListRow, Pill, ScreenHeading, StatusBanner } from '../shared/ui/components'
+import { BottomSheet } from '../shared/ui/BottomSheet'
+import '../business/business.css'
+
+const CHAMBER_TYPES: ChamberType[] = ['FLUE_KILN', 'ELECTRIC', 'SOLAR_BIOMASS']
+
+function NewChamber({ onCreate }: { onCreate: (input: NewChamberInput) => void }) {
+  const [name, setName] = useState('')
+  const [type, setType] = useState<ChamberType>('FLUE_KILN')
+  const [capacityKg, setCap] = useState('')
+  const [targetTempC, setTarget] = useState('55')
+  const [cycleHours, setCycle] = useState('24')
+  const valid = name.trim().length > 0 && Number(capacityKg) > 0
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    onCreate({ name: name.trim(), type, capacityKg: Number(capacityKg), targetTempC: Number(targetTempC) || 0, cycleHours: Number(cycleHours) || 24 })
+  }
+
+  return (
+    <form className="biz-form" onSubmit={submit}>
+      <input className="biz-input" placeholder="Chamber name (e.g. Kiln C)" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      <select className="biz-select" value={type} onChange={(e) => setType(e.target.value as ChamberType)}>
+        {CHAMBER_TYPES.map((t) => <option key={t} value={t}>{CHAMBER_TYPE_LABEL[t]}</option>)}
+      </select>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <input className="biz-input" placeholder="Capacity kg" value={capacityKg} onChange={(e) => setCap(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        <input className="biz-input" placeholder="Target °C" value={targetTempC} onChange={(e) => setTarget(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+      </div>
+      <input className="biz-input" placeholder="Cycle hours" value={cycleHours} onChange={(e) => setCycle(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+      <Button type="submit" disabled={!valid}>Add chamber</Button>
+    </form>
+  )
+}
 
 const STATUS_LABEL: Record<Chamber['status'], string> = {
   IDLE: 'Idle',
@@ -16,10 +50,18 @@ const STATUS_LABEL: Record<Chamber['status'], string> = {
 
 export function ChambersScreen({ selectedId, onSelect }: { selectedId?: string; onSelect: (id: string) => void }) {
   const chambers = useDryo((state) => state.chambers)
+  const createChamber = useDryo((state) => state.createChamber)
+  const [adding, setAdding] = useState(false)
 
   return (
     <>
       <ScreenHeading eyebrow="Drying floor" title="Chambers" description="Kilns and dryers with live temperature and load." />
+      <div className="section-header">
+        <h2>Chambers{chambers.length ? ` · ${chambers.length}` : ''}</h2>
+        <button className="chip" type="button" onClick={() => setAdding(true)}>
+          <Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New chamber
+        </button>
+      </div>
       <div className="list-group">
         {chambers.map((chamber) => (
           <ListRow
@@ -33,6 +75,10 @@ export function ChambersScreen({ selectedId, onSelect }: { selectedId?: string; 
           />
         ))}
       </div>
+
+      <BottomSheet open={adding} onClose={() => setAdding(false)} title="New chamber">
+        <NewChamber onCreate={(input) => { createChamber(input); setAdding(false) }} />
+      </BottomSheet>
     </>
   )
 }

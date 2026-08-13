@@ -380,6 +380,23 @@ func nextStage(stage string) string {
 const chamberCols = `id, name, type, status, temp_c, target_temp_c, humidity, load_kg,
 	capacity_kg, batch_id, elapsed_hours, cycle_hours, started_at`
 
+// CreateChamber adds a new chamber (kiln/dryer) to the drying floor.
+func (s *Store) CreateChamber(ctx context.Context, c Chamber) (Chamber, error) {
+	if c.ID == "" {
+		c.ID = newID("ch")
+	}
+	if c.Status == "" {
+		c.Status = "IDLE"
+	}
+	if c.Type == "" {
+		c.Type = "FLUE_KILN"
+	}
+	return scanOneChamber(ctx, s.pool,
+		`INSERT INTO chambers (id, name, type, status, target_temp_c, capacity_kg, cycle_hours)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING `+chamberCols,
+		c.ID, c.Name, c.Type, c.Status, c.TargetTempC, c.CapacityKg, c.CycleHours)
+}
+
 func (s *Store) ListChambers(ctx context.Context) ([]Chamber, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+chamberCols+` FROM chambers ORDER BY name ASC`)
 	if err != nil {

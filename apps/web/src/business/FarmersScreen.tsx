@@ -121,6 +121,7 @@ function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail;
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [recording, setRecording] = useState(false)
   const [profile, setProfile] = useState({ name: detail.name, village: detail.village, phone: detail.phone, note: detail.note })
 
   async function saveProfile(e: FormEvent) {
@@ -138,6 +139,7 @@ function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail;
     try {
       await dryoApi.addFarmerTransaction(detail.id, { type, amount: value, note })
       setAmount(''); setNote('')
+      setRecording(false)
       onChanged()
     } finally {
       setBusy(false)
@@ -158,33 +160,36 @@ function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail;
         <button type="button" className="chip" onClick={() => setEditing((v) => !v)}><Pencil size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Edit</button>
       </div>
 
-      <div style={{ padding: '0 20px' }}><BalancePill balance={detail.balance} /></div>
+      <div style={{ padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <BalancePill balance={detail.balance} />
+        <button type="button" className="chip" onClick={() => setRecording(true)}><Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />Record</button>
+      </div>
 
-      {editing && (
-        <form className="card biz-form" onSubmit={saveProfile}>
-          <p className="team-form-title">Edit profile</p>
+      <BottomSheet open={editing} onClose={() => setEditing(false)} title="Edit farmer">
+        <form className="biz-form" onSubmit={saveProfile}>
           <input className="biz-input" placeholder="Name" value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} />
           <input className="biz-input" placeholder="Village" value={profile.village} onChange={(e) => setProfile((p) => ({ ...p, village: e.target.value }))} />
           <input className="biz-input" placeholder="Phone" value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} inputMode="tel" />
           <input className="biz-input" placeholder="Note" value={profile.note} onChange={(e) => setProfile((p) => ({ ...p, note: e.target.value }))} />
           <Button type="submit">Save profile</Button>
         </form>
-      )}
+      </BottomSheet>
 
-      <form className="card biz-form" onSubmit={record}>
-        <p className="team-form-title">Record a transaction</p>
-        <div className="chip-row" style={{ padding: '8px 0' }}>
-          {TX_TYPES.map((t) => (
-            <button key={t} type="button" className={`chip ${type === t ? 'is-active' : ''}`} onClick={() => setType(t)}>{TX_LABEL[t]}</button>
-          ))}
-        </div>
-        <div className="biz-amount">
-          <IndianRupee size={18} />
-          <input className="biz-input" style={{ border: 0, padding: '0 8px' }} placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
-        </div>
-        <input className="biz-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-        <Button type="submit" disabled={!Number(amount) || busy}>{busy ? 'Saving…' : `Record ${TX_LABEL[type].toLowerCase()}`}</Button>
-      </form>
+      <BottomSheet open={recording} onClose={() => setRecording(false)} title="Record transaction">
+        <form className="biz-form" onSubmit={record}>
+          <div className="chip-row" style={{ padding: '2px 0' }}>
+            {TX_TYPES.map((t) => (
+              <button key={t} type="button" className={`chip ${type === t ? 'is-active' : ''}`} onClick={() => setType(t)}>{TX_LABEL[t]}</button>
+            ))}
+          </div>
+          <div className="biz-amount">
+            <IndianRupee size={18} />
+            <input className="biz-input" style={{ border: 0, padding: '0 8px' }} placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" autoFocus />
+          </div>
+          <input className="biz-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <Button type="submit" disabled={!Number(amount) || busy}>{busy ? 'Saving…' : `Record ${TX_LABEL[type].toLowerCase()}`}</Button>
+        </form>
+      </BottomSheet>
 
       <SectionHeader title="Ledger" />
       <div className="list-group">

@@ -8,6 +8,7 @@ import { useDryo, type NewBatchInput } from '../app/store'
 import { Button, Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner, Weight } from '../shared/ui/components'
 import { BottomSheet } from '../shared/ui/BottomSheet'
 import { FarmerPicker } from '../shared/ui/FarmerPicker'
+import { GradePicker } from '../shared/ui/GradePicker'
 import '../business/business.css'
 
 const FILTERS = ['Active', 'Ready', 'All'] as const
@@ -98,10 +99,9 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
 
   // Picking a grade auto-fills the green rate: dried cost × yield ≈ what the
   // green is worth per kg (own-purchase only; job-work uses a curing charge).
-  function onGradeChange(g: Grade | '') {
-    setGrade(g)
-    const gp = prices.find((p) => p.grade === g)
-    if (gp && ownership === 'OWN') setRate(String(Math.round(gp.costRatePerKg * gp.yieldRatio)))
+  function onGradePick(p: GradePrice | null) {
+    setGrade(p ? (p.grade as Grade) : '')
+    if (p && ownership === 'OWN') setRate(String(Math.round(p.costRatePerKg * p.yieldRatio)))
   }
 
   const gradePrice = prices.find((p) => p.grade === grade)
@@ -148,12 +148,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         <input className="biz-input" placeholder="Moisture %" value={currentMoisture} onChange={(e) => setMoisture(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
       </div>
 
-      <select className="biz-select" value={grade} onChange={(e) => onGradeChange(e.target.value as Grade | '')}>
-        <option value="">Expected grade (optional)…</option>
-        {prices.map((p) => (
-          <option key={p.grade} value={p.grade}>{GRADE_LABEL[p.grade] ?? p.grade} · sell ₹{p.sellRatePerKg}/kg</option>
-        ))}
-      </select>
+      <GradePicker value={grade} prices={prices} greenKg={Number(greenWeightKg) || 0} onChange={onGradePick} />
       {estDried != null && gradePrice && (
         <p className="detail-sub" style={{ padding: '0 4px' }}>
           Est. dried ≈ <strong>{estDried} kg</strong> ({Math.round(gradePrice.yieldRatio * 100)}% yield) · sell ₹{gradePrice.sellRatePerKg}/kg · cost ₹{gradePrice.costRatePerKg}/kg
@@ -167,6 +162,11 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
         inputMode="decimal"
       />
+      {ownership === 'OWN' && Number(greenWeightKg) > 0 && Number(rate) > 0 && (
+        <p className="detail-sub" style={{ padding: '0 4px' }}>
+          Total payable to farmer: <strong>₹{(Number(greenWeightKg) * Number(rate)).toLocaleString('en-IN')}</strong> ({greenWeightKg} kg × ₹{rate})
+        </p>
+      )}
 
       <select className="biz-select" value={chamberSel} onChange={(e) => setChamberSel(e.target.value)}>
         <option value="">Load into chamber later…</option>
@@ -225,8 +225,7 @@ function BatchEditForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (pat
   }
 
   return (
-    <form className="card biz-form" onSubmit={submit}>
-      <p className="team-form-title">Edit batch</p>
+    <form className="biz-form" onSubmit={submit}>
       <input className="biz-input" placeholder="Lot code" value={lotCode} onChange={(e) => setLotCode(e.target.value)} />
       <input className="biz-input" placeholder="Farmer name" value={farmerName} onChange={(e) => setFarmerName(e.target.value)} />
       <input className="biz-input" placeholder="Village" value={village} onChange={(e) => setVillage(e.target.value)} />
@@ -296,15 +295,15 @@ export function BatchDetail({ batch }: { batch: Batch }) {
         </div>
       </div>
 
-      {editing && (
+      <BottomSheet open={editing} onClose={() => setEditing(false)} title="Edit batch">
         <BatchEditForm
           batch={batch}
           onSave={(patch) => { updateBatch(batch.id, patch); setEditing(false) }}
           onCancel={() => setEditing(false)}
         />
-      )}
+      </BottomSheet>
 
-      {!editing && batch.note && <StatusBanner tone={batch.stage === 'DRYING' ? 'warning' : 'neutral'}>{batch.note}</StatusBanner>}
+      {batch.note && <StatusBanner tone={batch.stage === 'DRYING' ? 'warning' : 'neutral'}>{batch.note}</StatusBanner>}
 
       <div className="card">
         <div className="field-grid">

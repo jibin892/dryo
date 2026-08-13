@@ -5,7 +5,7 @@ import {
   intakeReceipts as seedIntake,
   inventoryLots as seedInventory,
 } from '../mocks/data'
-import { STAGE_ORDER, type Batch, type BatchStage, type Chamber, type DryoNotification, type Grade, type IntakeReceipt } from '../shared/contracts'
+import { STAGE_ORDER, type Batch, type BatchStage, type Chamber, type ChamberType, type DryoNotification, type Grade, type IntakeReceipt } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 
 export type NewIntakeInput = {
@@ -14,6 +14,14 @@ export type NewIntakeInput = {
   weightKg: number
   moisturePct: number
   ratePerKg: number
+}
+
+export type NewChamberInput = {
+  name: string
+  type: ChamberType
+  capacityKg: number
+  targetTempC: number
+  cycleHours: number
 }
 
 export type NewBatchInput = {
@@ -48,6 +56,7 @@ type DryoState = {
   createIntake: (input: NewIntakeInput) => void
   loadIntake: (id: string, chamberId: string) => void
   toggleChamber: (id: string) => void
+  createChamber: (input: NewChamberInput) => void
 }
 
 function nextStage(stage: BatchStage): BatchStage {
@@ -185,5 +194,26 @@ export const useDryo = create<DryoState>((set) => ({
       }),
     }))
     void dryoApi.toggleChamber(id).catch(() => undefined)
+  },
+
+  createChamber: (input) => {
+    const optimistic: Chamber = {
+      id: `ch-new-${Date.now()}`,
+      name: input.name,
+      type: input.type,
+      status: 'IDLE',
+      tempC: 0,
+      targetTempC: input.targetTempC,
+      humidity: 0,
+      loadKg: 0,
+      capacityKg: input.capacityKg,
+      elapsedHours: 0,
+      cycleHours: input.cycleHours,
+    }
+    set((state) => ({ chambers: [...state.chambers, optimistic] }))
+    void dryoApi
+      .createChamber(input)
+      .then((created) => set((state) => ({ chambers: state.chambers.map((c) => (c.id === optimistic.id ? created : c)) })))
+      .catch(() => undefined)
   },
 }))

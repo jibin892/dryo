@@ -30,6 +30,7 @@ export const dryoApi = {
   advanceBatch: (id: string) => api.post<Batch>(`/batches/${id}/advance`),
 
   listChambers: () => api.get<Chamber[]>('/chambers'),
+  createChamber: (input: Partial<Chamber>) => api.post<Chamber>('/chambers', input),
   toggleChamber: (id: string) => api.post<Chamber>(`/chambers/${id}/toggle`),
 
   listIntake: () => api.get<IntakeReceipt[]>('/intake'),

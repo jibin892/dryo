@@ -286,6 +286,24 @@ func (a *API) listChambers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (a *API) createChamber(w http.ResponseWriter, r *http.Request) {
+	var c store.Chamber
+	if !decodeJSON(w, r, &c) {
+		return
+	}
+	if strings.TrimSpace(c.Name) == "" || c.CapacityKg <= 0 {
+		writeError(w, http.StatusBadRequest, "name and a positive capacityKg are required")
+		return
+	}
+	out, err := a.store.CreateChamber(r.Context(), c)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not create chamber")
+		return
+	}
+	a.notify.Push("New chamber", fmt.Sprintf("%s · %.0f kg capacity", out.Name, out.CapacityKg))
+	writeJSON(w, http.StatusCreated, out)
+}
+
 func (a *API) toggleChamber(w http.ResponseWriter, r *http.Request) {
 	c, err := a.store.ToggleChamber(r.Context(), chi.URLParam(r, "id"))
 	if errors.Is(err, store.ErrNotFound) {
