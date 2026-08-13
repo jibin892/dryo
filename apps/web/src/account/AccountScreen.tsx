@@ -1,4 +1,4 @@
-import { Bell, Building2, LogOut, PackageCheck, ShieldCheck, SlidersHorizontal, Smartphone, Tag, Users, UserRound, Warehouse, Wheat } from 'lucide-react'
+import { Bell, Building2, LogOut, PackageCheck, ShieldCheck, SlidersHorizontal, Tag, Users, UserRound, Warehouse, Wheat } from 'lucide-react'
 import type { Session } from '../shared/contracts'
 import { canManageMembers } from '../shared/contracts'
 import { promptOneSignal } from '../notifications/oneSignal'
@@ -91,7 +91,6 @@ export function AccountScreen({
       <SectionHeader title="Preferences" />
       <div className="list-group">
         <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Push notifications" subtitle="Over-temp alerts, batches, sales" value="Enable" onClick={() => promptOneSignal()} />
-        <ListRow lead={<Smartphone aria-hidden="true" size={20} />} title="Offline mode" subtitle="Cache readings on the drying floor" value="On" />
       </div>
 
       <div className="sticky-action">

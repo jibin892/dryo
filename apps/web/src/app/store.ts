@@ -4,9 +4,8 @@ import {
   chambers as seedChambers,
   intakeReceipts as seedIntake,
   inventoryLots as seedInventory,
-  notifications as seedNotifications,
 } from '../mocks/data'
-import { STAGE_ORDER, type Batch, type BatchStage, type Chamber, type Grade, type IntakeReceipt } from '../shared/contracts'
+import { STAGE_ORDER, type Batch, type BatchStage, type Chamber, type DryoNotification, type Grade, type IntakeReceipt } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 
 export type NewIntakeInput = {
@@ -38,7 +37,7 @@ type DryoState = {
   chambers: Chamber[]
   intake: IntakeReceipt[]
   inventory: typeof seedInventory
-  notifications: typeof seedNotifications
+  notifications: DryoNotification[]
   loaded: boolean
   online: boolean
   loadAll: () => Promise<void>
@@ -61,7 +60,7 @@ export const useDryo = create<DryoState>((set) => ({
   chambers: seedChambers,
   intake: seedIntake,
   inventory: seedInventory,
-  notifications: seedNotifications,
+  notifications: [],
   loaded: false,
   online: false,
 

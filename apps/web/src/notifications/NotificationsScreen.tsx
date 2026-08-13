@@ -33,7 +33,10 @@ export function NotificationsScreen() {
           )
         })}
         {notifications.length === 0 && (
-          <div className="empty-state"><Bell aria-hidden="true" size={26} /><p>You're all caught up.</p></div>
+          <div className="empty-state">
+            <Bell aria-hidden="true" size={26} />
+            <p>Alerts — over-temp faults, batches, and sales — arrive as push notifications on your device. Turn them on in Account → Push notifications.</p>
+          </div>
         )}
       </div>
     </>
