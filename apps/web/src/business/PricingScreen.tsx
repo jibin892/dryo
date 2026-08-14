@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Plus, Sparkles, Tag, Trash2 } from 'lucide-react'
-import type { GradePrice, ServiceAddon } from '../shared/contracts'
+import type { GradePrice, HouseSettings, ServiceAddon } from '../shared/contracts'
 import { gradeLabel } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
@@ -8,7 +8,7 @@ import { Button, ScreenHeading, StatusBanner } from '../shared/ui/components'
 import { BottomSheet } from '../shared/ui/BottomSheet'
 import './business.css'
 
-type Tab = 'Grades' | 'Add-ons'
+type Tab = 'Grades' | 'Add-ons' | 'Rates'
 type Banner = { tone: 'positive' | 'warning'; text: string } | null
 
 function apiErrText(err: unknown, fallback: string): string {
@@ -23,11 +23,65 @@ export function PricingScreen({ canEdit }: { canEdit: boolean }) {
       <ScreenHeading eyebrow="Grades & pricing" title="Pricing" description="Grades hold sell price, cost and yield. Add-ons are paid services (like grading) priced per kg or flat." />
       {!canEdit && <StatusBanner>Only owners and managers can change pricing.</StatusBanner>}
       <div className="chip-row" role="tablist" aria-label="Pricing sections">
-        {(['Grades', 'Add-ons'] as Tab[]).map((t) => (
+        {(['Grades', 'Add-ons', 'Rates'] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={`chip ${tab === t ? 'is-active' : ''}`} type="button" onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
-      {tab === 'Grades' ? <GradesPanel canEdit={canEdit} /> : <AddonsPanel canEdit={canEdit} />}
+      {tab === 'Grades' ? <GradesPanel canEdit={canEdit} /> : tab === 'Add-ons' ? <AddonsPanel canEdit={canEdit} /> : <RatesPanel canEdit={canEdit} />}
+    </>
+  )
+}
+
+// ─────────────────────────── Rates (defaults) ───────────────────────────
+
+function RatesPanel({ canEdit }: { canEdit: boolean }) {
+  const [settings, setSettings] = useState<HouseSettings | null>(null)
+  const [purchase, setPurchase] = useState('')
+  const [curing, setCuring] = useState('')
+  const [banner, setBanner] = useState<Banner>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    dryoApi.getSettings().then((s) => {
+      setSettings(s)
+      setPurchase(s.defaultPurchaseRatePerKg ? String(s.defaultPurchaseRatePerKg) : '')
+      setCuring(s.defaultCuringRatePerKg ? String(s.defaultCuringRatePerKg) : '')
+    }).catch((err) => setBanner({ tone: 'warning', text: apiErrText(err, 'Could not load rates') }))
+  }, [])
+
+  async function save() {
+    if (!settings) return
+    setSaving(true)
+    setBanner(null)
+    try {
+      await dryoApi.updateSettings({ ...settings, defaultPurchaseRatePerKg: Number(purchase) || 0, defaultCuringRatePerKg: Number(curing) || 0 })
+      setBanner({ tone: 'positive', text: 'Rates saved.' })
+      setTimeout(() => setBanner(null), 2500)
+    } catch (err) {
+      setBanner({ tone: 'warning', text: apiErrText(err, 'Could not save rates') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      {banner && <StatusBanner tone={banner.tone}>{banner.text}</StatusBanner>}
+      <div className="section-header"><h2>Default rates</h2></div>
+      <div className="card">
+        <div className="price-fields">
+          <label>Purchase ₹/kg green<input className="price-row-input" disabled={!canEdit} inputMode="decimal" value={purchase} onChange={(e) => setPurchase(e.target.value.replace(/[^\d.]/g, ''))} /></label>
+          <label>Curing ₹/kg (job-work)<input className="price-row-input" disabled={!canEdit} inputMode="decimal" value={curing} onChange={(e) => setCuring(e.target.value.replace(/[^\d.]/g, ''))} /></label>
+        </div>
+        <p className="detail-sub" style={{ padding: '12px 4px 0' }}>
+          Purchase rate pre-fills the price paid to the farmer on <strong>own-purchase</strong> lots. Curing rate pre-fills the charge on <strong>job-work</strong> lots. You can still change either on any lot.
+        </p>
+      </div>
+      {canEdit && (
+        <div className="sticky-action">
+          <Button onClick={save} disabled={saving || !settings}>{saving ? 'Saving…' : 'Save rates'}</Button>
+        </div>
+      )}
     </>
   )
 }

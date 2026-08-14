@@ -251,6 +251,7 @@ export type ServiceAddon = {
 export type HouseSettings = {
   houseName: string
   defaultCuringRatePerKg: number
+  defaultPurchaseRatePerKg: number
   gstNumber: string
 }
 

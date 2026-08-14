@@ -48,9 +48,10 @@ type ServiceAddon struct {
 }
 
 type HouseSettings struct {
-	HouseName              string  `json:"houseName"              db:"house_name"`
-	DefaultCuringRatePerKg float64 `json:"defaultCuringRatePerKg" db:"default_curing_rate_per_kg"`
-	GSTNumber              string  `json:"gstNumber"              db:"gst_number"`
+	HouseName                string  `json:"houseName"                db:"house_name"`
+	DefaultCuringRatePerKg   float64 `json:"defaultCuringRatePerKg"   db:"default_curing_rate_per_kg"`
+	DefaultPurchaseRatePerKg float64 `json:"defaultPurchaseRatePerKg" db:"default_purchase_rate_per_kg"`
+	GSTNumber                string  `json:"gstNumber"                db:"gst_number"`
 }
 
 type Sale struct {
@@ -281,7 +282,7 @@ func (s *Store) DeleteAddon(ctx context.Context, id string) error {
 func (s *Store) GetSettings(ctx context.Context) (HouseSettings, error) {
 	rows, err := s.pool.Query(ctx,
 		`INSERT INTO house_settings (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET id=1
-		 RETURNING house_name, default_curing_rate_per_kg, gst_number`)
+		 RETURNING house_name, default_curing_rate_per_kg, default_purchase_rate_per_kg, gst_number`)
 	if err != nil {
 		return HouseSettings{}, err
 	}
@@ -290,9 +291,9 @@ func (s *Store) GetSettings(ctx context.Context) (HouseSettings, error) {
 
 func (s *Store) UpdateSettings(ctx context.Context, hs HouseSettings) (HouseSettings, error) {
 	rows, err := s.pool.Query(ctx,
-		`UPDATE house_settings SET house_name=$1, default_curing_rate_per_kg=$2, gst_number=$3 WHERE id=1
-		 RETURNING house_name, default_curing_rate_per_kg, gst_number`,
-		hs.HouseName, hs.DefaultCuringRatePerKg, hs.GSTNumber)
+		`UPDATE house_settings SET house_name=$1, default_curing_rate_per_kg=$2, default_purchase_rate_per_kg=$3, gst_number=$4 WHERE id=1
+		 RETURNING house_name, default_curing_rate_per_kg, default_purchase_rate_per_kg, gst_number`,
+		hs.HouseName, hs.DefaultCuringRatePerKg, hs.DefaultPurchaseRatePerKg, hs.GSTNumber)
 	if err != nil {
 		return HouseSettings{}, err
 	}

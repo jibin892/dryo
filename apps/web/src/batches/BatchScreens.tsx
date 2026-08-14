@@ -103,21 +103,31 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
   const [addons, setAddons] = useState<ServiceAddon[]>([])
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [defaultCuring, setDefaultCuring] = useState(0)
+  const [defaultPurchase, setDefaultPurchase] = useState(0)
   const chambers = useDryo((s) => s.chambers)
   const idleChambers = chambers.filter((c) => c.status === 'IDLE')
 
   useEffect(() => {
     dryoApi.listPricing().then(setPrices).catch(() => setPrices([]))
     dryoApi.listAddons().then((a) => setAddons(a.filter((x) => x.active))).catch(() => setAddons([]))
-    dryoApi.getSettings().then((s) => setDefaultCuring(s.defaultCuringRatePerKg || 0)).catch(() => undefined)
+    // Pre-fill the rate from the house defaults (Pricing → Rates). Ownership
+    // starts on OWN, so seed the green purchase rate.
+    dryoApi.getSettings().then((s) => {
+      setDefaultCuring(s.defaultCuringRatePerKg || 0)
+      setDefaultPurchase(s.defaultPurchaseRatePerKg || 0)
+      if (s.defaultPurchaseRatePerKg > 0) setRate((r) => r || String(s.defaultPurchaseRatePerKg))
+    }).catch(() => undefined)
   }, [])
 
   const greenKg = Number(greenWeightKg) || 0
 
   function pickOwnership(o: 'OWN' | 'JOBWORK') {
     setOwnership(o)
-    // Job-work → pre-fill the curing charge from the house default if untouched.
-    if (o === 'JOBWORK' && !rate && defaultCuring > 0) setRate(String(defaultCuring))
+    // Pre-fill the rate from the matching house default, if the field is untouched.
+    if (!rate) {
+      if (o === 'JOBWORK' && defaultCuring > 0) setRate(String(defaultCuring))
+      if (o === 'OWN' && defaultPurchase > 0) setRate(String(defaultPurchase))
+    }
   }
 
   function onGradePick(p: GradePrice | null) {
