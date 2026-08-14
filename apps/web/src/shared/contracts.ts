@@ -88,6 +88,7 @@ export type Batch = {
   curingRatePerKg?: number
   gradingCharge?: number
   gradingEnabled?: boolean
+  addonIds?: string[]
   paid?: boolean
 }
 

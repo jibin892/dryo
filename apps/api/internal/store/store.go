@@ -168,7 +168,7 @@ func (s *Store) RevokeInvitation(ctx context.Context, id string) error {
 
 const batchCols = `id, lot_code, farmer_name, village, green_weight_kg, dried_weight_kg,
 	chamber_id, stage, started_at, target_moisture, current_moisture, grade, rate_per_kg, note,
-	ownership, farmer_id, curing_rate_per_kg, grading_charge, grading_enabled, paid, settled_at`
+	ownership, farmer_id, curing_rate_per_kg, grading_charge, grading_enabled, addon_ids, paid, settled_at`
 
 var stageOrder = []string{"INTAKE", "DRYING", "CURING", "GRADING", "READY", "DISPATCHED"}
 
@@ -198,6 +198,9 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 	if b.Ownership == "" {
 		b.Ownership = "OWN"
 	}
+	if b.AddonIDs == nil {
+		b.AddonIDs = []string{}
+	}
 	// Loading straight into a chamber starts the drying stage.
 	loadChamber := b.ChamberID != nil && *b.ChamberID != ""
 	if loadChamber {
@@ -214,10 +217,10 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 
 	out, err := scanOneBatch(ctx, tx,
 		`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, chamber_id, stage,
-		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_charge, grading_enabled)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING `+batchCols,
+		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_charge, grading_enabled, addon_ids)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING `+batchCols,
 		b.ID, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.ChamberID, b.Stage,
-		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingCharge, b.GradingEnabled)
+		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingCharge, b.GradingEnabled, b.AddonIDs)
 	if err != nil {
 		return Batch{}, err
 	}
@@ -255,6 +258,7 @@ type BatchPatch struct {
 	RatePerKg       *float64
 	GradingCharge   *float64
 	GradingEnabled  *bool
+	AddonIDs        *[]string
 }
 
 // UpdateBatch edits a batch's details, including the actual dried weight and grade.
@@ -305,12 +309,18 @@ func (s *Store) UpdateBatch(ctx context.Context, id string, p BatchPatch) (Batch
 	if p.GradingEnabled != nil {
 		b.GradingEnabled = *p.GradingEnabled
 	}
+	if p.AddonIDs != nil {
+		b.AddonIDs = *p.AddonIDs
+	}
+	if b.AddonIDs == nil {
+		b.AddonIDs = []string{}
+	}
 	return scanOneBatch(ctx, s.pool,
 		`UPDATE batches SET lot_code=$2, farmer_name=$3, village=$4, green_weight_kg=$5,
-		   dried_weight_kg=$6, current_moisture=$7, rate_per_kg=$8, grade=$9, note=$10, grading_charge=$11, grading_enabled=$12
+		   dried_weight_kg=$6, current_moisture=$7, rate_per_kg=$8, grade=$9, note=$10, grading_charge=$11, grading_enabled=$12, addon_ids=$13
 		 WHERE id=$1 RETURNING `+batchCols,
 		id, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.DriedWeightKg,
-		b.CurrentMoisture, b.RatePerKg, b.Grade, b.Note, b.GradingCharge, b.GradingEnabled)
+		b.CurrentMoisture, b.RatePerKg, b.Grade, b.Note, b.GradingCharge, b.GradingEnabled, b.AddonIDs)
 }
 
 // AdvanceBatch moves a batch to the next lifecycle stage. Moving into GRADING
@@ -470,24 +480,34 @@ func (s *Store) settleReady(ctx context.Context, tx pgx.Tx, b Batch) error {
 	}
 	graded := b.Grade != nil && *b.Grade != ""
 
-	// Grading (and add-ons) are post-drying services: price them on the actual
-	// dried weight, using the central Grading add-on's rate. Stamp the final
-	// charge on the batch so it shows on the detail screen.
-	grading := 0.0
-	if b.GradingEnabled && graded && dried > 0 {
-		var rate float64
-		var perKg bool
-		if err := tx.QueryRow(ctx,
-			`SELECT rate, per_kg FROM service_addons
-			 WHERE id='addon-grading' OR lower(name)='grading' ORDER BY id LIMIT 1`).Scan(&rate, &perKg); err == nil {
+	// Add-ons (grading, sorting, …) are post-drying services priced on the actual
+	// dried weight. Total the batch's selected add-ons at their current rate and
+	// stamp it on the batch so it shows on the detail screen.
+	addonTotal := 0.0
+	if dried > 0 && len(b.AddonIDs) > 0 {
+		rows, err := tx.Query(ctx, `SELECT rate, per_kg FROM service_addons WHERE id = ANY($1) AND active`, b.AddonIDs)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var rate float64
+			var perKg bool
+			if err := rows.Scan(&rate, &perKg); err != nil {
+				rows.Close()
+				return err
+			}
 			if perKg {
-				grading = math.Round(rate * dried)
+				addonTotal += math.Round(rate * dried)
 			} else {
-				grading = rate
+				addonTotal += rate
 			}
 		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE batches SET grading_charge=$2 WHERE id=$1`, b.ID, grading); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE batches SET grading_charge=$2 WHERE id=$1`, b.ID, addonTotal); err != nil {
 		return err
 	}
 
@@ -516,11 +536,11 @@ func (s *Store) settleReady(ctx context.Context, tx pgx.Tx, b Batch) error {
 		return nil
 	}
 
-	// JOBWORK: bill curing on the green weight, plus the grading add-on (on dried).
-	charge := b.GreenWeightKg*b.CuringRatePerKg + grading
+	// JOBWORK: bill curing on the green weight, plus the add-ons (on dried).
+	charge := b.GreenWeightKg*b.CuringRatePerKg + addonTotal
 	note := "Curing charge · " + b.LotCode
-	if grading > 0 {
-		note = "Curing + grading · " + b.LotCode
+	if addonTotal > 0 {
+		note = "Curing + add-ons · " + b.LotCode
 	}
 	return postFarmerTx(ctx, tx, b.FarmerID, "JOBWORK_CHARGE", -math.Round(charge), note, b.ID)
 }

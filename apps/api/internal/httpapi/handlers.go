@@ -205,8 +205,9 @@ type updateBatchBody struct {
 	DriedWeightKg   *float64 `json:"driedWeightKg"`
 	CurrentMoisture *float64 `json:"currentMoisture"`
 	RatePerKg       *float64 `json:"ratePerKg"`
-	GradingCharge   *float64 `json:"gradingCharge"`
-	GradingEnabled  *bool    `json:"gradingEnabled"`
+	GradingCharge   *float64  `json:"gradingCharge"`
+	GradingEnabled  *bool     `json:"gradingEnabled"`
+	AddonIDs        *[]string `json:"addonIds"`
 }
 
 func (a *API) updateBatch(w http.ResponseWriter, r *http.Request) {
@@ -227,6 +228,7 @@ func (a *API) updateBatch(w http.ResponseWriter, r *http.Request) {
 		RatePerKg:       body.RatePerKg,
 		GradingCharge:   body.GradingCharge,
 		GradingEnabled:  body.GradingEnabled,
+		AddonIDs:        body.AddonIDs,
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "batch not found")

@@ -65,6 +65,7 @@ type Batch struct {
 	CuringRatePerKg float64    `json:"curingRatePerKg" db:"curing_rate_per_kg"`
 	GradingCharge   float64    `json:"gradingCharge"   db:"grading_charge"`
 	GradingEnabled  bool       `json:"gradingEnabled"  db:"grading_enabled"`
+	AddonIDs        []string   `json:"addonIds"        db:"addon_ids"`
 	Paid            bool       `json:"paid"            db:"paid"`
 	SettledAt       *time.Time `json:"settledAt"       db:"settled_at"`
 }
