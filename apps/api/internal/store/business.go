@@ -148,6 +148,61 @@ func (s *Store) AddFarmerTransaction(ctx context.Context, t FarmerTransaction) (
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByNameLax[FarmerTransaction])
 }
 
+// ListFarmerBatches returns every lot recorded under a farmer, newest first.
+func (s *Store) ListFarmerBatches(ctx context.Context, farmerID string) ([]Batch, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+batchCols+` FROM batches WHERE farmer_id=$1 ORDER BY started_at DESC`, farmerID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[Batch])
+}
+
+// SetBatchPaid marks a batch's money settled or not. Marking paid posts an
+// offsetting PAYMENT for the batch's ledger amount (so the farmer balance zeroes
+// for that lot); un-marking removes it. Idempotent.
+func (s *Store) SetBatchPaid(ctx context.Context, batchID string, paid bool) (Batch, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Batch{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	b, err := scanOneBatch(ctx, tx, `SELECT `+batchCols+` FROM batches WHERE id=$1 FOR UPDATE`, batchID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Batch{}, ErrNotFound
+	} else if err != nil {
+		return Batch{}, err
+	}
+
+	// Always clear any prior settlement first, so the toggle is idempotent.
+	if _, err := tx.Exec(ctx, `DELETE FROM farmer_transactions WHERE batch_id=$1 AND type='PAYMENT'`, batchID); err != nil {
+		return Batch{}, err
+	}
+	if paid && b.FarmerID != nil && *b.FarmerID != "" {
+		var owed float64
+		if err := tx.QueryRow(ctx,
+			`SELECT COALESCE(SUM(amount),0) FROM farmer_transactions WHERE batch_id=$1 AND type <> 'PAYMENT'`, batchID).Scan(&owed); err != nil {
+			return Batch{}, err
+		}
+		if owed != 0 {
+			if _, err := tx.Exec(ctx,
+				`INSERT INTO farmer_transactions (id, farmer_id, type, amount, note, batch_id) VALUES ($1,$2,'PAYMENT',$3,$4,$5)`,
+				newID("ftx"), *b.FarmerID, -owed, "Settled · "+b.LotCode, batchID); err != nil {
+				return Batch{}, err
+			}
+		}
+	}
+
+	out, err := scanOneBatch(ctx, tx, `UPDATE batches SET paid=$2 WHERE id=$1 RETURNING `+batchCols, batchID, paid)
+	if err != nil {
+		return Batch{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Batch{}, err
+	}
+	return out, nil
+}
+
 // ─────────────────────────── pricing & settings ───────────────────────────
 
 const gradePriceCols = `grade, sell_rate_per_kg, cost_rate_per_kg, yield_ratio, updated_at`

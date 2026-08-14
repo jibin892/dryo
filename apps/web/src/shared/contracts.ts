@@ -88,6 +88,7 @@ export type Batch = {
   curingRatePerKg?: number
   gradingCharge?: number
   gradingEnabled?: boolean
+  paid?: boolean
 }
 
 export type ChamberStatus = 'IDLE' | 'HEATING' | 'DRYING' | 'CURING' | 'COOLING' | 'FAULT'
@@ -208,7 +209,7 @@ export type FarmerTransaction = {
   createdAt: string
 }
 
-export type FarmerDetail = Farmer & { transactions: FarmerTransaction[] }
+export type FarmerDetail = Farmer & { transactions: FarmerTransaction[]; batches: Batch[] }
 
 export type SaleChannel = 'DIRECT' | 'AUCTION'
 

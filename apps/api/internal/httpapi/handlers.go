@@ -238,6 +238,26 @@ func (a *API) updateBatch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+type paidBody struct {
+	Paid bool `json:"paid"`
+}
+
+func (a *API) setBatchPaid(w http.ResponseWriter, r *http.Request) {
+	var body paidBody
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	out, err := a.store.SetBatchPaid(r.Context(), chi.URLParam(r, "id"), body.Paid)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "batch not found")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update payment status")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 type loadBatchBody struct {
 	ChamberID string `json:"chamberId"`
 }

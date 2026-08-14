@@ -168,7 +168,7 @@ func (s *Store) RevokeInvitation(ctx context.Context, id string) error {
 
 const batchCols = `id, lot_code, farmer_name, village, green_weight_kg, dried_weight_kg,
 	chamber_id, stage, started_at, target_moisture, current_moisture, grade, rate_per_kg, note,
-	ownership, farmer_id, curing_rate_per_kg, grading_charge, grading_enabled, settled_at`
+	ownership, farmer_id, curing_rate_per_kg, grading_charge, grading_enabled, paid, settled_at`
 
 var stageOrder = []string{"INTAKE", "DRYING", "CURING", "GRADING", "READY", "DISPATCHED"}
 

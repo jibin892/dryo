@@ -297,6 +297,7 @@ const NEXT_ACTION: Partial<Record<Batch['stage'], string>> = {
 export function BatchDetail({ batch }: { batch: Batch }) {
   const advanceBatch = useDryo((state) => state.advanceBatch)
   const updateBatch = useDryo((state) => state.updateBatch)
+  const setBatchPaid = useDryo((state) => state.setBatchPaid)
   const loadBatchIntoChamber = useDryo((state) => state.loadBatchIntoChamber)
   const chambers = useDryo((state) => state.chambers)
   const [editing, setEditing] = useState(false)
@@ -360,6 +361,18 @@ export function BatchDetail({ batch }: { batch: Batch }) {
           tone={batch.currentMoisture <= batch.targetMoisture + 2 ? 'positive' : 'warning'}
         />
       </div>
+
+      {batch.farmerId && (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="field">
+            <small>Payment</small>
+            <strong>{batch.paid ? 'Settled' : batch.ownership === 'JOBWORK' ? 'To collect from farmer' : 'To pay farmer'}</strong>
+          </div>
+          <button type="button" className={`chip ${batch.paid ? 'is-active' : ''}`} onClick={() => setBatchPaid(batch.id, !batch.paid)}>
+            {batch.paid ? '✓ Paid' : 'Mark paid'}
+          </button>
+        </div>
+      )}
 
       <SectionHeader title="Lifecycle" />
       <div className="timeline">

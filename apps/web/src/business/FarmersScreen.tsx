@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowLeft, IndianRupee, Pencil, Plus, UserRound } from 'lucide-react'
 import type { Farmer, FarmerDetail, FarmerTransactionType } from '../shared/contracts'
+import { STAGE_LABEL } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { Button, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner } from '../shared/ui/components'
@@ -146,6 +147,15 @@ function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail;
     }
   }
 
+  async function togglePaid(batchId: string, next: boolean) {
+    await dryoApi.setBatchPaid(batchId, next).catch(() => undefined)
+    onChanged()
+  }
+
+  // What this lot posted to the ledger (excludes settling payments).
+  const lotAmount = (batchId: string) =>
+    detail.transactions.filter((t) => t.batchId === batchId && t.type !== 'PAYMENT').reduce((s, t) => s + t.amount, 0)
+
   return (
     <div className="detail-scroll">
       <div className="mobile-back-row">
@@ -190,6 +200,26 @@ function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail;
           <Button type="submit" disabled={!Number(amount) || busy}>{busy ? 'Saving…' : `Record ${TX_LABEL[type].toLowerCase()}`}</Button>
         </form>
       </BottomSheet>
+
+      <SectionHeader title={`Lots${detail.batches.length ? ` · ${detail.batches.length}` : ''}`} />
+      <div className="list-group">
+        {detail.batches.map((b) => {
+          const amt = lotAmount(b.id)
+          const dir = amt >= 0 ? 'Pay' : 'Collect'
+          return (
+            <div key={b.id} className="list-row" style={{ alignItems: 'center' }}>
+              <span className="list-row-copy">
+                <span className="list-row-title">{b.lotCode} · {b.ownership === 'JOBWORK' ? 'Job-work' : 'Own'}</span>
+                <span className="list-row-subtitle">{b.greenWeightKg} kg green · {STAGE_LABEL[b.stage]}{amt !== 0 ? ` · ${dir} ${money(amt)}` : ''}</span>
+              </span>
+              <button type="button" className={`chip ${b.paid ? 'is-active' : ''}`} onClick={() => togglePaid(b.id, !b.paid)}>
+                {b.paid ? '✓ Paid' : 'Mark paid'}
+              </button>
+            </div>
+          )
+        })}
+        {detail.batches.length === 0 && <div className="empty-state"><p>No lots under this farmer yet.</p></div>}
+      </div>
 
       <SectionHeader title="Ledger" />
       <div className="list-group">

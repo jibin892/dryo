@@ -52,6 +52,7 @@ type DryoState = {
   loadAll: () => Promise<void>
   createBatch: (input: NewBatchInput) => void
   updateBatch: (id: string, patch: Partial<Batch>) => void
+  setBatchPaid: (id: string, paid: boolean) => void
   loadBatchIntoChamber: (batchId: string, chamberId: string) => void
   advanceBatch: (id: string) => void
   createIntake: (input: NewIntakeInput) => void
@@ -126,6 +127,14 @@ export const useDryo = create<DryoState>((set) => ({
     set((state) => ({ batches: state.batches.map((b) => (b.id === id ? { ...b, ...patch } : b)) }))
     void dryoApi
       .updateBatch(id, patch)
+      .then((updated) => set((state) => ({ batches: state.batches.map((b) => (b.id === id ? updated : b)) })))
+      .catch(() => undefined)
+  },
+
+  setBatchPaid: (id, paid) => {
+    set((state) => ({ batches: state.batches.map((b) => (b.id === id ? { ...b, paid } : b)) }))
+    void dryoApi
+      .setBatchPaid(id, paid)
       .then((updated) => set((state) => ({ batches: state.batches.map((b) => (b.id === id ? updated : b)) })))
       .catch(() => undefined)
   },

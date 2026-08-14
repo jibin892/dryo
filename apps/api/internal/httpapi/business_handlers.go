@@ -44,6 +44,7 @@ func (a *API) createFarmer(w http.ResponseWriter, r *http.Request) {
 type farmerDetail struct {
 	store.Farmer
 	Transactions []store.FarmerTransaction `json:"transactions"`
+	Batches      []store.Batch             `json:"batches"`
 }
 
 func (a *API) getFarmer(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +62,12 @@ func (a *API) getFarmer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load ledger")
 		return
 	}
-	writeJSON(w, http.StatusOK, farmerDetail{Farmer: f, Transactions: txns})
+	batches, err := a.store.ListFarmerBatches(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not load lots")
+		return
+	}
+	writeJSON(w, http.StatusOK, farmerDetail{Farmer: f, Transactions: txns, Batches: batches})
 }
 
 type txnBody struct {
