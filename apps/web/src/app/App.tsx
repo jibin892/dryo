@@ -150,7 +150,7 @@ export function App() {
       onNavigate={navigate}
       userName={session.displayName}
       title={session.houseName}
-      notificationCount={notifications.length}
+      notificationCount={notifications.filter((n) => !n.readAt).length}
       detail={detail}
       focusDetail={routedBatch || routedChamber}
       mobileDetail={mobileDetail}

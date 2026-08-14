@@ -124,21 +124,25 @@ export function DashboardScreen({
 
       {role !== 'OPERATOR' && <BusinessOverview />}
 
-      <SectionHeader title="Chambers running" />
-      <div className="card" style={{ display: 'grid', gap: 16 }}>
-        {chambers
-          .filter((chamber) => chamber.status !== 'IDLE')
-          .map((chamber) => (
-            <Gauge
-              key={chamber.id}
-              label={`${chamber.name} · ${chamber.tempC}°C`}
-              value={chamber.tempC}
-              max={80}
-              display={`${chamber.tempC}°C`}
-              tone={chamberTone(chamber.status)}
-            />
-          ))}
-      </div>
+      {chambers.some((chamber) => chamber.status !== 'IDLE') && (
+        <>
+          <SectionHeader title="Chambers running" />
+          <div className="card" style={{ display: 'grid', gap: 16 }}>
+            {chambers
+              .filter((chamber) => chamber.status !== 'IDLE')
+              .map((chamber) => (
+                <Gauge
+                  key={chamber.id}
+                  label={`${chamber.name} · ${chamber.tempC}°C`}
+                  value={chamber.tempC}
+                  max={80}
+                  display={`${chamber.tempC}°C`}
+                  tone={chamberTone(chamber.status)}
+                />
+              ))}
+          </div>
+        </>
+      )}
 
       <SectionHeader title="In cure now" />
       <div className="list-group">

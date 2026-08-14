@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Bell, CheckCircle2, Info, TriangleAlert } from 'lucide-react'
 import type { DryoNotification } from '../shared/contracts'
 import { relativeTime } from '../shared/format'
@@ -14,6 +15,10 @@ const ICON = {
 
 export function NotificationsScreen() {
   const notifications = useDryo((state) => state.notifications)
+  const markNotificationsRead = useDryo((state) => state.markNotificationsRead)
+
+  // Opening the feed clears the unread badge.
+  useEffect(() => { markNotificationsRead() }, [markNotificationsRead])
 
   return (
     <>
@@ -35,7 +40,7 @@ export function NotificationsScreen() {
         {notifications.length === 0 && (
           <div className="empty-state">
             <Bell aria-hidden="true" size={26} />
-            <p>Alerts — over-temp faults, batches, and sales — arrive as push notifications on your device. Turn them on in Account → Push notifications.</p>
+            <p>Activity shows here — new lots, purchases and payments your team records. Device push alerts (faults, batches) can be turned on in Account → Push notifications.</p>
           </div>
         )}
       </div>

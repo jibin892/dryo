@@ -3,6 +3,7 @@ import type {
   Chamber,
   ChamberDetailData,
   ChamberExpense,
+  DryoNotification,
   Farmer,
   FarmerDetail,
   FarmerTransaction,
@@ -90,6 +91,9 @@ export const dryoApi = {
 
   getSettings: () => api.get<HouseSettings>('/settings'),
   updateSettings: (input: HouseSettings) => api.patch<HouseSettings>('/settings', input),
+
+  listNotifications: () => api.get<DryoNotification[]>('/notifications'),
+  markNotificationsRead: () => api.post<{ status: string }>('/notifications/read'),
 
   reportSummary: (range?: { from: string; to: string }) =>
     api.get<ReportSummary>(range ? `/reports/summary?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}` : '/reports/summary'),

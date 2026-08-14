@@ -192,6 +192,15 @@ func (a *API) createBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.notify.Push("New batch "+out.LotCode, fmt.Sprintf("%s · %.0f kg green", out.FarmerName, out.GreenWeightKg))
+	// Record an owner-facing notification when a non-owner adds a lot/purchase.
+	if u, ok := userFrom(r.Context()); ok && u.Role != store.RoleOwner {
+		kind := "purchase"
+		if out.Ownership == "JOBWORK" {
+			kind = "job-work lot"
+		}
+		_ = a.store.AddNotification(r.Context(), "New "+kind+" · "+out.LotCode,
+			fmt.Sprintf("%s added %s (%s · %.0f kg green)", u.DisplayName, out.LotCode, out.FarmerName, out.GreenWeightKg), "neutral")
+	}
 	writeJSON(w, http.StatusCreated, out)
 }
 

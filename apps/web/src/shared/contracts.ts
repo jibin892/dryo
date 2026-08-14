@@ -184,6 +184,7 @@ export type DryoNotification = {
   body: string
   at: string
   tone: 'neutral' | 'positive' | 'warning' | 'critical'
+  readAt?: string | null
 }
 
 // ── Phase 1: business management ──

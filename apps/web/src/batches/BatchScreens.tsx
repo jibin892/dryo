@@ -167,10 +167,19 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
           </button>
         ))}
       </div>
+      <p className="detail-sub" style={{ padding: '0 4px' }}>
+        {ownership === 'OWN'
+          ? 'You buy the green from the farmer and keep the dried stock to sell.'
+          : "The farmer's own cardamom — you only cure it and charge per kg (goods go back to the farmer)."}
+      </p>
 
       <div style={{ display: 'flex', gap: 12 }}>
-        <input className="biz-input" placeholder="Green kg" value={greenWeightKg} onChange={(e) => setGreen(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
-        <input className="biz-input" placeholder="Moisture %" value={currentMoisture} onChange={(e) => setMoisture(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        <label className="biz-field"><span>Green kg</span>
+          <input className="biz-input" placeholder="e.g. 560" value={greenWeightKg} onChange={(e) => setGreen(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        </label>
+        <label className="biz-field"><span>Moisture %</span>
+          <input className="biz-input" placeholder="72" value={currentMoisture} onChange={(e) => setMoisture(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        </label>
       </div>
 
       <GradePicker value={grade} prices={prices} onChange={onGradePick} />
@@ -180,13 +189,16 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         </p>
       )}
 
-      <input
-        className="biz-input"
-        placeholder={ownership === 'OWN' ? 'Rate ₹/kg green (paid to farmer)' : 'Curing charge ₹/kg'}
-        value={rate}
-        onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
-        inputMode="decimal"
-      />
+      <label className="biz-field">
+        <span>{ownership === 'OWN' ? 'Rate ₹/kg green (paid to farmer)' : 'Curing charge ₹/kg'}</span>
+        <input
+          className="biz-input"
+          placeholder={ownership === 'OWN' ? 'e.g. 450' : 'e.g. 30'}
+          value={rate}
+          onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
+          inputMode="decimal"
+        />
+      </label>
       {ownership === 'OWN' && greenKg > 0 && Number(rate) > 0 && (
         <p className="detail-sub" style={{ padding: '0 4px' }}>
           Total payable to farmer: <strong>₹{Math.round(greenKg * Number(rate)).toLocaleString('en-IN')}</strong> ({greenKg} kg × ₹{rate})

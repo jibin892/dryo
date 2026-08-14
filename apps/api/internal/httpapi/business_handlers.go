@@ -107,7 +107,8 @@ func (a *API) addFarmerTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "amount must be non-zero")
 		return
 	}
-	if _, err := a.store.GetFarmer(r.Context(), id); errors.Is(err, store.ErrNotFound) {
+	farmer, err := a.store.GetFarmer(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "farmer not found")
 		return
 	}
@@ -117,6 +118,11 @@ func (a *API) addFarmerTransaction(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not record transaction")
 		return
+	}
+	// Notify the owner when a non-owner records a farmer money movement.
+	if u, ok := userFrom(r.Context()); ok && u.Role != store.RoleOwner {
+		_ = a.store.AddNotification(r.Context(), "Ledger · "+farmer.Name,
+			fmt.Sprintf("%s recorded %s ₹%.0f for %s", u.DisplayName, strings.ToUpper(body.Type), math.Abs(amount), farmer.Name), "neutral")
 	}
 	writeJSON(w, http.StatusCreated, out)
 }
@@ -362,6 +368,25 @@ func parseReportRange(r *http.Request) (time.Time, time.Time) {
 		}
 	}
 	return from, to
+}
+
+// ── Notifications ──
+
+func (a *API) listNotifications(w http.ResponseWriter, r *http.Request) {
+	items, err := a.store.ListNotifications(r.Context(), 50)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not load notifications")
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (a *API) markNotificationsRead(w http.ResponseWriter, r *http.Request) {
+	if err := a.store.MarkNotificationsRead(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update notifications")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (a *API) reportSummary(w http.ResponseWriter, r *http.Request) {

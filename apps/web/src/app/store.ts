@@ -60,6 +60,7 @@ type DryoState = {
   toggleChamber: (id: string) => void
   createChamber: (input: NewChamberInput) => void
   editChamber: (id: string, patch: Partial<Chamber>) => void
+  markNotificationsRead: () => void
 }
 
 function nextStage(stage: BatchStage): BatchStage {
@@ -80,16 +81,23 @@ export const useDryo = create<DryoState>((set) => ({
   // so the UI is always usable.
   loadAll: async () => {
     try {
-      const [batches, chambers, intake, inventory] = await Promise.all([
+      const [batches, chambers, intake, inventory, notifications] = await Promise.all([
         dryoApi.listBatches(),
         dryoApi.listChambers(),
         dryoApi.listIntake(),
         dryoApi.listInventory(),
+        dryoApi.listNotifications().catch(() => [] as DryoNotification[]),
       ])
-      set({ batches, chambers, intake, inventory, loaded: true, online: true })
+      set({ batches, chambers, intake, inventory, notifications, loaded: true, online: true })
     } catch {
       set({ loaded: true, online: false })
     }
+  },
+
+  markNotificationsRead: () => {
+    const now = new Date().toISOString()
+    set((state) => ({ notifications: state.notifications.map((n) => (n.readAt ? n : { ...n, readAt: now })) }))
+    void dryoApi.markNotificationsRead().catch(() => undefined)
   },
 
   createBatch: (input) => {
