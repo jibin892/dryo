@@ -39,6 +39,7 @@ export type NewBatchInput = {
   grade?: Grade
   chamberId?: string
   addonIds?: string[]
+  scheduledFor?: string
 }
 
 type DryoState = {
@@ -118,6 +119,7 @@ export const useDryo = create<DryoState>((set, get) => ({
       farmerId: input.farmerId ?? null,
       grade: input.grade,
       addonIds: input.addonIds,
+      scheduledFor: input.scheduledFor ?? null,
     }
     set((state) => ({
       batches: [optimistic, ...state.batches],

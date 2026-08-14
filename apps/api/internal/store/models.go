@@ -67,6 +67,7 @@ type Batch struct {
 	GradingEnabled  bool       `json:"gradingEnabled"  db:"grading_enabled"`
 	AddonIDs        []string   `json:"addonIds"        db:"addon_ids"`
 	Paid            bool       `json:"paid"            db:"paid"`
+	ScheduledFor    *string    `json:"scheduledFor"    db:"scheduled_for"`
 	SettledAt       *time.Time `json:"settledAt"       db:"settled_at"`
 }
 

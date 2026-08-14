@@ -168,7 +168,7 @@ func (s *Store) RevokeInvitation(ctx context.Context, id string) error {
 
 const batchCols = `id, lot_code, farmer_name, village, green_weight_kg, dried_weight_kg,
 	chamber_id, stage, started_at, target_moisture, current_moisture, grade, rate_per_kg, note,
-	ownership, farmer_id, curing_rate_per_kg, grading_charge, grading_enabled, addon_ids, paid, settled_at`
+	ownership, farmer_id, curing_rate_per_kg, grading_charge, grading_enabled, addon_ids, paid, scheduled_for, settled_at`
 
 var stageOrder = []string{"INTAKE", "DRYING", "CURING", "GRADING", "READY", "DISPATCHED"}
 
@@ -217,10 +217,10 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 
 	out, err := scanOneBatch(ctx, tx,
 		`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, chamber_id, stage,
-		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_charge, grading_enabled, addon_ids)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING `+batchCols,
+		   target_moisture, current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_charge, grading_enabled, addon_ids, scheduled_for)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING `+batchCols,
 		b.ID, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.ChamberID, b.Stage,
-		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingCharge, b.GradingEnabled, b.AddonIDs)
+		b.TargetMoisture, b.CurrentMoisture, b.RatePerKg, b.Note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingCharge, b.GradingEnabled, b.AddonIDs, b.ScheduledFor)
 	if err != nil {
 		return Batch{}, err
 	}
@@ -256,6 +256,7 @@ type BatchPatch struct {
 	GradingCharge   *float64
 	GradingEnabled  *bool
 	AddonIDs        *[]string
+	ScheduledFor    *string
 }
 
 // UpdateBatch edits a batch's details, including the actual dried weight and grade.
@@ -312,6 +313,13 @@ func (s *Store) UpdateBatch(ctx context.Context, id string, p BatchPatch) (Batch
 	if b.AddonIDs == nil {
 		b.AddonIDs = []string{}
 	}
+	if p.ScheduledFor != nil {
+		if *p.ScheduledFor == "" {
+			b.ScheduledFor = nil
+		} else {
+			b.ScheduledFor = p.ScheduledFor
+		}
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Batch{}, err
@@ -319,10 +327,10 @@ func (s *Store) UpdateBatch(ctx context.Context, id string, p BatchPatch) (Batch
 	defer tx.Rollback(ctx) //nolint:errcheck
 	out, err := scanOneBatch(ctx, tx,
 		`UPDATE batches SET lot_code=$2, farmer_name=$3, village=$4, green_weight_kg=$5,
-		   dried_weight_kg=$6, current_moisture=$7, rate_per_kg=$8, grade=$9, note=$10, grading_charge=$11, grading_enabled=$12, addon_ids=$13
+		   dried_weight_kg=$6, current_moisture=$7, rate_per_kg=$8, grade=$9, note=$10, grading_charge=$11, grading_enabled=$12, addon_ids=$13, scheduled_for=$14
 		 WHERE id=$1 RETURNING `+batchCols,
 		id, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.DriedWeightKg,
-		b.CurrentMoisture, b.RatePerKg, b.Grade, b.Note, b.GradingCharge, b.GradingEnabled, b.AddonIDs)
+		b.CurrentMoisture, b.RatePerKg, b.Grade, b.Note, b.GradingCharge, b.GradingEnabled, b.AddonIDs, b.ScheduledFor)
 	if err != nil {
 		return Batch{}, err
 	}

@@ -90,6 +90,7 @@ export type Batch = {
   gradingEnabled?: boolean
   addonIds?: string[]
   paid?: boolean
+  scheduledFor?: string | null
 }
 
 export type ChamberStatus = 'IDLE' | 'HEATING' | 'DRYING' | 'CURING' | 'COOLING' | 'FAULT'

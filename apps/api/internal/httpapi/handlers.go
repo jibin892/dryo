@@ -213,6 +213,7 @@ type updateBatchBody struct {
 	GradingCharge   *float64  `json:"gradingCharge"`
 	GradingEnabled  *bool     `json:"gradingEnabled"`
 	AddonIDs        *[]string `json:"addonIds"`
+	ScheduledFor    *string   `json:"scheduledFor"`
 }
 
 func (a *API) updateBatch(w http.ResponseWriter, r *http.Request) {
@@ -234,6 +235,7 @@ func (a *API) updateBatch(w http.ResponseWriter, r *http.Request) {
 		GradingCharge:   body.GradingCharge,
 		GradingEnabled:  body.GradingEnabled,
 		AddonIDs:        body.AddonIDs,
+		ScheduledFor:    body.ScheduledFor,
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "batch not found")

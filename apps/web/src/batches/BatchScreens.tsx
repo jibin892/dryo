@@ -76,7 +76,7 @@ export function BatchesScreen({ selectedId, onSelect }: { selectedId?: string; o
             key={batch.id}
             lead={<Droplets aria-hidden="true" size={20} />}
             title={`${batch.lotCode} · ${batch.farmerName}`}
-            subtitle={`${batch.village} · ${batch.greenWeightKg} kg green${batch.grade ? ` · ${batch.grade}` : ''}`}
+            subtitle={`${batch.village} · ${batch.greenWeightKg} kg green${batch.grade ? ` · ${batch.grade}` : ''}${batch.stage === 'INTAKE' && batch.scheduledFor ? ` · 📅 ${new Date(batch.scheduledFor).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}` : ''}`}
             value={<Pill tone={stageTone(batch.stage)}>{STAGE_LABEL[batch.stage]}</Pill>}
             selected={batch.id === selectedId}
             onClick={() => onSelect(batch.id)}
@@ -99,6 +99,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
   const [grade, setGrade] = useState<Grade | ''>('')
   const [note, setNote] = useState('')
   const [chamberSel, setChamberSel] = useState('')
+  const [scheduleFor, setScheduleFor] = useState('')
   const [addons, setAddons] = useState<ServiceAddon[]>([])
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [defaultCuring, setDefaultCuring] = useState(0)
@@ -151,6 +152,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
       note: note.trim() || undefined,
       chamberId: chamberSel || undefined,
       addonIds: selectedAddons,
+      scheduledFor: !chamberSel && scheduleFor ? scheduleFor : undefined,
     })
   }
 
@@ -218,6 +220,13 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
           return <option key={c.id} value={c.id}>{c.name} · {free} kg free{greenKg > free ? ' — over capacity' : ''}</option>
         })}
       </select>
+
+      {!chamberSel && (
+        <label className="biz-field">
+          <span>Schedule drying for (optional — when a chamber frees up)</span>
+          <input type="date" className="biz-input" value={scheduleFor} onChange={(e) => setScheduleFor(e.target.value)} />
+        </label>
+      )}
 
       {addons.length > 0 ? (
         <>
@@ -353,6 +362,7 @@ export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Ba
   }
   const [loadChamberSel, setLoadChamberSel] = useState('')
   const [loadKg, setLoadKg] = useState('')
+  const [scheduleDate, setScheduleDate] = useState(batch.scheduledFor ?? '')
   const idleChambers = chambers.filter((c) => c.status === 'IDLE')
 
   // Default the load amount to fill the chosen chamber (or the whole lot if smaller).
@@ -405,6 +415,9 @@ export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Ba
       </BottomSheet>
 
       {batch.note && <StatusBanner tone={batch.stage === 'DRYING' ? 'warning' : 'neutral'}>{batch.note}</StatusBanner>}
+      {batch.stage === 'INTAKE' && batch.scheduledFor && (
+        <StatusBanner tone="neutral">📅 Scheduled to dry on {new Date(batch.scheduledFor).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}.</StatusBanner>
+      )}
 
       <div className="card">
         <div className="field-grid">
@@ -447,28 +460,34 @@ export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Ba
       {action && (
         <div className="sticky-action">
           {batch.stage === 'INTAKE' ? (
-            idleChambers.length > 0 ? (
-              <>
-                <select className="biz-select" value={loadChamberSel} onChange={(e) => pickLoadChamber(e.target.value)} style={{ marginBottom: 10 }}>
-                  <option value="">Choose a chamber…</option>
-                  {idleChambers.map((c) => <option key={c.id} value={c.id}>{c.name} · {Math.round(c.capacityKg - c.loadKg)} kg free</option>)}
-                </select>
-                {loadChamberSel && (
-                  <>
-                    <input className="biz-input" placeholder="kg to load" value={loadKg} onChange={(e) => setLoadKg(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" style={{ marginBottom: 8 }} />
-                    <p className="detail-sub" style={{ padding: '0 4px 10px' }}>
-                      {loadRemainder > 0
-                        ? `${Number(loadKg) || 0} kg loads now · ${loadRemainder} kg stays as a new lot to load elsewhere.`
-                        : `Loading the full lot (${Math.round(batch.greenWeightKg)} kg).`}
-                      {Number(loadKg) > freeKg ? ' ⚠ over chamber capacity' : ''}
-                    </p>
-                  </>
-                )}
-                <Button disabled={!loadChamberSel || !(Number(loadKg) > 0)} onClick={() => loadBatchIntoChamber(batch.id, loadChamberSel, Number(loadKg) || undefined)}>Load into chamber</Button>
-              </>
-            ) : (
-              <StatusBanner tone="warning">No idle chamber available — free one first.</StatusBanner>
-            )
+            <>
+              {idleChambers.length > 0 ? (
+                <>
+                  <select className="biz-select" value={loadChamberSel} onChange={(e) => pickLoadChamber(e.target.value)} style={{ marginBottom: 10 }}>
+                    <option value="">Choose a chamber…</option>
+                    {idleChambers.map((c) => <option key={c.id} value={c.id}>{c.name} · {Math.round(c.capacityKg - c.loadKg)} kg free</option>)}
+                  </select>
+                  {loadChamberSel && (
+                    <>
+                      <input className="biz-input" placeholder="kg to load" value={loadKg} onChange={(e) => setLoadKg(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" style={{ marginBottom: 8 }} />
+                      <p className="detail-sub" style={{ padding: '0 4px 10px' }}>
+                        {loadRemainder > 0
+                          ? `${Number(loadKg) || 0} kg loads now · ${loadRemainder} kg stays as a new lot to load elsewhere.`
+                          : `Loading the full lot (${Math.round(batch.greenWeightKg)} kg).`}
+                        {Number(loadKg) > freeKg ? ' ⚠ over chamber capacity' : ''}
+                      </p>
+                    </>
+                  )}
+                  <Button disabled={!loadChamberSel || !(Number(loadKg) > 0)} onClick={() => loadBatchIntoChamber(batch.id, loadChamberSel, Number(loadKg) || undefined)}>Load into chamber</Button>
+                </>
+              ) : (
+                <StatusBanner tone="warning">No idle chamber free — schedule it for a day below.</StatusBanner>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'stretch' }}>
+                <input type="date" className="biz-input" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} style={{ flex: 1 }} />
+                <Button variant="light" onClick={() => updateBatch(batch.id, { scheduledFor: scheduleDate })}>{batch.scheduledFor ? 'Reschedule' : 'Schedule'}</Button>
+              </div>
+            </>
           ) : (
             <>
               <Button onClick={() => advanceBatch(batch.id)}>{action}</Button>
