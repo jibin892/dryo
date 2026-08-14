@@ -10,6 +10,7 @@ import { Button, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner, Weig
 import { BottomSheet } from '../shared/ui/BottomSheet'
 import { FarmerPicker } from '../shared/ui/FarmerPicker'
 import { GradePicker } from '../shared/ui/GradePicker'
+import { DatePicker } from '../shared/ui/DatePicker'
 import '../business/business.css'
 
 const FILTERS = ['Active', 'Intake', 'Ready', 'All'] as const
@@ -232,10 +233,10 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
       </select>
 
       {!chamberSel && (
-        <label className="biz-field">
+        <div className="biz-field">
           <span>Schedule drying for (optional — when a chamber frees up)</span>
-          <input type="date" className="biz-input" value={scheduleFor} onChange={(e) => setScheduleFor(e.target.value)} />
-        </label>
+          <DatePicker value={scheduleFor} onChange={setScheduleFor} placeholder="Pick a day…" />
+        </div>
       )}
 
       {addons.length > 0 ? (
@@ -494,7 +495,7 @@ export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Ba
                 <StatusBanner tone="warning">No idle chamber free — schedule it for a day below.</StatusBanner>
               )}
               <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'stretch' }}>
-                <input type="date" className="biz-input" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} style={{ flex: 1 }} />
+                <div style={{ flex: 1 }}><DatePicker value={scheduleDate} onChange={setScheduleDate} placeholder="Pick a day…" /></div>
                 <Button variant="light" onClick={() => updateBatch(batch.id, { scheduledFor: scheduleDate })}>{batch.scheduledFor ? 'Reschedule' : 'Schedule'}</Button>
               </div>
             </>

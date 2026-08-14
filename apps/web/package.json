@@ -13,6 +13,7 @@
     "firebase": "^12.17.1",
     "lucide-react": "^0.468.0",
     "react": "^19.2.8",
+    "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.8",
     "zustand": "^5.0.14"
   },

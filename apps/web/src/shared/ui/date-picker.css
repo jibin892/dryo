@@ -1,0 +1,47 @@
+/* react-day-picker themed to the Dryo design system. */
+.dryo-calendar {
+  display: flex;
+  justify-content: center;
+  padding: 6px 4px 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 15px;
+
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: rgb(23 59 61 / 8%);
+  --rdp-today-color: var(--accent);
+  --rdp-day-width: 42px;
+  --rdp-day-height: 42px;
+  --rdp-day_button-width: 42px;
+  --rdp-day_button-height: 42px;
+  --rdp-outside-opacity: 0.35;
+  --rdp-disabled-opacity: 0.3;
+  --rdp-weekday-opacity: 0.6;
+  --rdp-selected-border: 0;
+}
+
+.dryo-calendar .rdp-chevron { fill: var(--accent); }
+.dryo-calendar .rdp-caption_label { font-weight: 500; color: var(--text-primary); }
+.dryo-calendar .rdp-weekday { color: var(--text-tertiary); font-weight: 500; }
+
+.dryo-calendar .rdp-day_button {
+  border-radius: var(--radius-pill);
+  transition: background var(--dur-fast);
+}
+.dryo-calendar .rdp-day_button:hover { background: var(--fill-06); }
+
+.dryo-calendar .rdp-selected .rdp-day_button {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 0;
+}
+.dryo-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dryo-calendar .rdp-button_previous:hover,
+.dryo-calendar .rdp-button_next:hover {
+  background: var(--fill-06);
+  border-radius: var(--radius-sm);
+}

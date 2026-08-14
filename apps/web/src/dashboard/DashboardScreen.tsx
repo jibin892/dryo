@@ -7,6 +7,7 @@ import { useDryo } from '../app/store'
 import { dryoApi } from '../api/dryo'
 import { money } from '../business/FarmersScreen'
 import { Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatCard, StatusBanner } from '../shared/ui/components'
+import { DatePicker } from '../shared/ui/DatePicker'
 
 const PERIODS = ['Today', 'Yesterday', 'Week', 'Month', 'Custom'] as const
 type Period = (typeof PERIODS)[number]
@@ -48,8 +49,8 @@ function BusinessOverview() {
       </div>
       {period === 'Custom' && (
         <div style={{ display: 'flex', gap: 12, padding: '0 20px 4px' }}>
-          <input type="date" className="biz-input" value={cf} onChange={(e) => setCf(e.target.value)} />
-          <input type="date" className="biz-input" value={ct} onChange={(e) => setCt(e.target.value)} />
+          <div style={{ flex: 1 }}><DatePicker value={cf} onChange={setCf} placeholder="From…" clearable={false} /></div>
+          <div style={{ flex: 1 }}><DatePicker value={ct} onChange={setCt} placeholder="To…" clearable={false} /></div>
         </div>
       )}
       {r && (
