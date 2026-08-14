@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -38,6 +39,7 @@ func (a *API) createFarmer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not create farmer")
 		return
 	}
+	a.recordActivity(r.Context(), "New farmer · "+out.Name, "added farmer "+out.Name)
 	writeJSON(w, http.StatusCreated, out)
 }
 
@@ -119,11 +121,8 @@ func (a *API) addFarmerTransaction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not record transaction")
 		return
 	}
-	// Notify the owner when a non-owner records a farmer money movement.
-	if u, ok := userFrom(r.Context()); ok && u.Role != store.RoleOwner {
-		_ = a.store.AddNotification(r.Context(), "Ledger · "+farmer.Name,
-			fmt.Sprintf("%s recorded %s ₹%.0f for %s", u.DisplayName, strings.ToUpper(body.Type), math.Abs(amount), farmer.Name), "neutral")
-	}
+	a.recordActivity(r.Context(), "Ledger · "+farmer.Name,
+		fmt.Sprintf("recorded %s ₹%.0f for %s", strings.ToUpper(body.Type), math.Abs(amount), farmer.Name))
 	writeJSON(w, http.StatusCreated, out)
 }
 
@@ -343,6 +342,7 @@ func (a *API) createSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.notify.Push("Sale recorded", fmt.Sprintf("%.0f kg %s → %s · ₹%.0f", out.QuantityKg, out.Grade, out.BuyerName, out.Amount))
+	a.recordActivity(r.Context(), "New sale · "+out.BuyerName, fmt.Sprintf("sold %.0f kg %s for ₹%.0f", out.QuantityKg, out.Grade, out.Amount))
 	writeJSON(w, http.StatusCreated, out)
 }
 
@@ -372,8 +372,20 @@ func parseReportRange(r *http.Request) (time.Time, time.Time) {
 
 // ── Notifications ──
 
+// recordActivity logs a team-feed entry attributed to the caller. Everyone else
+// (owner, managers, operators) sees it; the actor doesn't.
+func (a *API) recordActivity(ctx context.Context, title, what string) {
+	if u, ok := userFrom(ctx); ok {
+		_ = a.store.AddNotification(ctx, u.UID, title, u.DisplayName+" "+what, "neutral")
+	}
+}
+
 func (a *API) listNotifications(w http.ResponseWriter, r *http.Request) {
-	items, err := a.store.ListNotifications(r.Context(), 50)
+	uid := ""
+	if u, ok := userFrom(r.Context()); ok {
+		uid = u.UID
+	}
+	items, err := a.store.ListNotificationsFor(r.Context(), uid, 50)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not load notifications")
 		return
@@ -382,7 +394,12 @@ func (a *API) listNotifications(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) markNotificationsRead(w http.ResponseWriter, r *http.Request) {
-	if err := a.store.MarkNotificationsRead(r.Context()); err != nil {
+	u, ok := userFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	if err := a.store.MarkNotificationsReadFor(r.Context(), u.UID); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not update notifications")
 		return
 	}

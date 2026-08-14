@@ -192,15 +192,12 @@ func (a *API) createBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.notify.Push("New batch "+out.LotCode, fmt.Sprintf("%s · %.0f kg green", out.FarmerName, out.GreenWeightKg))
-	// Record an owner-facing notification when a non-owner adds a lot/purchase.
-	if u, ok := userFrom(r.Context()); ok && u.Role != store.RoleOwner {
-		kind := "purchase"
-		if out.Ownership == "JOBWORK" {
-			kind = "job-work lot"
-		}
-		_ = a.store.AddNotification(r.Context(), "New "+kind+" · "+out.LotCode,
-			fmt.Sprintf("%s added %s (%s · %.0f kg green)", u.DisplayName, out.LotCode, out.FarmerName, out.GreenWeightKg), "neutral")
+	kind := "purchase"
+	if out.Ownership == "JOBWORK" {
+		kind = "job-work lot"
 	}
+	a.recordActivity(r.Context(), "New "+kind+" · "+out.LotCode,
+		fmt.Sprintf("added %s (%s · %.0f kg green)", out.LotCode, out.FarmerName, out.GreenWeightKg))
 	writeJSON(w, http.StatusCreated, out)
 }
 
@@ -334,6 +331,7 @@ func (a *API) createChamber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.notify.Push("New chamber", fmt.Sprintf("%s · %.0f kg capacity", out.Name, out.CapacityKg))
+	a.recordActivity(r.Context(), "New chamber · "+out.Name, fmt.Sprintf("added chamber %s (%.0f kg)", out.Name, out.CapacityKg))
 	writeJSON(w, http.StatusCreated, out)
 }
 
