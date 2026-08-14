@@ -65,7 +65,9 @@ func NewRouter(cfg config.Config, verifier *auth.Verifier, st *store.Store) http
 
 				r.Get("/chambers", api.listChambers)
 				r.Post("/chambers", api.createChamber)
+				r.Get("/chambers/{id}/detail", api.getChamberDetail)
 				r.Post("/chambers/{id}/toggle", api.toggleChamber)
+				r.Post("/chambers/{id}/expenses", api.addChamberExpense)
 
 				r.Get("/intake", api.listIntake)
 				r.Post("/intake", api.createIntake)

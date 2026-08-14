@@ -1,12 +1,18 @@
-import { useState, type FormEvent } from 'react'
-import { CalendarClock, Flame, PlayCircle, Plus, Power, ThermometerSun, Timer, TriangleAlert, Wind } from 'lucide-react'
-import type { Chamber, ChamberType } from '../shared/contracts'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Boxes, CalendarClock, CheckCircle2, Coins, Droplets, Flame, PlayCircle, Plus, Power, Receipt, ThermometerSun, Timer, TriangleAlert, Wind } from 'lucide-react'
+import type { Chamber, ChamberDetailData, ChamberType } from '../shared/contracts'
 import { CHAMBER_TYPE_LABEL } from '../shared/contracts'
 import { chamberTone, clockTime } from '../shared/format'
+import { dryoApi } from '../api/dryo'
 import { useDryo, type NewChamberInput } from '../app/store'
-import { Button, Gauge, ListRow, Pill, ScreenHeading, StatusBanner } from '../shared/ui/components'
+import { Button, Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatCard, StatusBanner } from '../shared/ui/components'
 import { BottomSheet } from '../shared/ui/BottomSheet'
+import { money } from '../business/FarmersScreen'
 import '../business/business.css'
+
+const dayTime = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+const runHours = (loadedAt: string, releasedAt: string | null) => ((releasedAt ? new Date(releasedAt).getTime() : Date.now()) - new Date(loadedAt).getTime()) / 3_600_000
+const EXPENSE_CATEGORIES = ['Electricity', 'Firewood', 'Labour', 'Maintenance', 'Other']
 
 const CHAMBER_TYPES: ChamberType[] = ['FLUE_KILN', 'ELECTRIC', 'SOLAR_BIOMASS']
 
@@ -83,11 +89,56 @@ export function ChambersScreen({ selectedId, onSelect }: { selectedId?: string; 
   )
 }
 
+function ExpenseForm({ chamberId, onDone }: { chamberId: string; onDone: () => void }) {
+  const [amount, setAmount] = useState('')
+  const [category, setCategory] = useState('Electricity')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (!(Number(amount) > 0)) return
+    setBusy(true)
+    try {
+      await dryoApi.addChamberExpense(chamberId, { amount: Number(amount), category, note: note.trim() })
+      onDone()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="biz-form" onSubmit={submit}>
+      <div className="chip-row" style={{ padding: '2px 0', flexWrap: 'wrap' }}>
+        {EXPENSE_CATEGORIES.map((c) => (
+          <button key={c} type="button" className={`chip ${category === c ? 'is-active' : ''}`} onClick={() => setCategory(c)}>{c}</button>
+        ))}
+      </div>
+      <input className="biz-input" placeholder="Amount ₹" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" autoFocus />
+      <input className="biz-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+      <Button type="submit" disabled={!(Number(amount) > 0) || busy}>{busy ? 'Saving…' : 'Add expense'}</Button>
+    </form>
+  )
+}
+
 export function ChamberDetail({ chamber }: { chamber: Chamber }) {
   const toggleChamber = useDryo((state) => state.toggleChamber)
   const batches = useDryo((state) => state.batches)
   const batch = batches.find((item) => item.id === chamber.batchId)
   const overTemp = chamber.targetTempC > 0 && chamber.tempC > chamber.targetTempC + 5
+  const [detail, setDetail] = useState<ChamberDetailData | null>(null)
+  const [addingExp, setAddingExp] = useState(false)
+
+  async function refresh() {
+    try {
+      setDetail(await dryoApi.chamberDetail(chamber.id))
+    } catch {
+      // Offline / API down — the live gauges still render from the store.
+    }
+  }
+  useEffect(() => { void refresh() }, [chamber.id])
+
+  const stats = detail?.stats
 
   return (
     <div className="detail-scroll">
@@ -148,6 +199,65 @@ export function ChamberDetail({ chamber }: { chamber: Chamber }) {
           <div className="field"><small><ThermometerSun size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} />Type</small><strong>{CHAMBER_TYPE_LABEL[chamber.type]}</strong></div>
           <div className="field"><small><Timer size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} />Cycle</small><strong>{chamber.cycleHours}h</strong></div>
         </div>
+      </div>
+
+      {stats && (
+        <>
+          <SectionHeader title="Lifetime" />
+          <div className="stat-grid">
+            <StatCard label="Hours run" value={Math.round(stats.totalRunHours)} unit="h" icon={Timer} accent />
+            <StatCard label="Batches done" value={stats.batchesCompleted} icon={CheckCircle2} />
+            <StatCard label="Green in" value={Math.round(stats.greenProcessedKg)} unit="kg" icon={Boxes} />
+            <StatCard label="Dried out" value={Math.round(stats.driedProducedKg)} unit="kg" icon={Droplets} />
+          </div>
+          <div className="card">
+            <div className="field-grid">
+              <div className="field"><small>Avg yield</small><strong>{stats.avgYieldPct ? `${Math.round(stats.avgYieldPct)}%` : '—'}</strong></div>
+              <div className="field"><small>Current load</small><strong>{Math.round(stats.loadPct)}%</strong></div>
+              <div className="field"><small>Batches (all)</small><strong>{stats.batchesTotal}</strong></div>
+              <div className="field"><small>Total expenses</small><strong>{money(stats.expenseTotal)}</strong></div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="section-header">
+        <h2>Expenses</h2>
+        <button className="chip" type="button" onClick={() => setAddingExp(true)}>
+          <Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />Add expense
+        </button>
+      </div>
+      <BottomSheet open={addingExp} onClose={() => setAddingExp(false)} title="New chamber expense">
+        <ExpenseForm chamberId={chamber.id} onDone={() => { setAddingExp(false); void refresh() }} />
+      </BottomSheet>
+      <div className="list-group">
+        {detail?.expenses.map((e) => (
+          <ListRow
+            key={e.id}
+            lead={<Coins aria-hidden="true" size={18} />}
+            title={e.category || 'Expense'}
+            subtitle={`${dayTime(e.spentAt)}${e.note ? ` · ${e.note}` : ''}`}
+            value={<span className="list-row-value biz-debit">{money(e.amount)}</span>}
+          />
+        ))}
+        {detail && detail.expenses.length === 0 && <div className="empty-state"><p>No expenses logged for this chamber yet.</p></div>}
+      </div>
+
+      <SectionHeader title="Run history" />
+      <div className="list-group">
+        {detail?.runs.map((run) => {
+          const hrs = runHours(run.loadedAt, run.releasedAt)
+          return (
+            <ListRow
+              key={run.id}
+              lead={<Receipt aria-hidden="true" size={18} />}
+              title={`${run.lotCode} · ${run.farmerName}`}
+              subtitle={`${dayTime(run.loadedAt)} · ${hrs < 10 ? hrs.toFixed(1) : Math.round(hrs)}h · ${Math.round(run.greenKg)}${run.driedKg != null ? `→${Math.round(run.driedKg)}` : ''} kg`}
+              value={<Pill tone={run.releasedAt ? 'positive' : 'warning'}>{run.releasedAt ? 'Done' : 'Running'}</Pill>}
+            />
+          )
+        })}
+        {detail && detail.runs.length === 0 && <div className="empty-state"><p>No runs yet. Load a batch into this chamber to start its history.</p></div>}
       </div>
 
       <div className="sticky-action">

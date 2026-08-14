@@ -115,6 +115,45 @@ export type Chamber = {
   startedAt?: string | null
 }
 
+export type ChamberRun = {
+  id: string
+  chamberId: string
+  batchId: string
+  lotCode: string
+  farmerName: string
+  greenKg: number
+  driedKg: number | null
+  loadedAt: string
+  releasedAt: string | null
+}
+
+export type ChamberExpense = {
+  id: string
+  chamberId: string
+  amount: number
+  category: string
+  note: string
+  spentAt: string
+}
+
+export type ChamberStats = {
+  totalRunHours: number
+  batchesCompleted: number
+  batchesTotal: number
+  greenProcessedKg: number
+  driedProducedKg: number
+  avgYieldPct: number
+  expenseTotal: number
+  loadPct: number
+}
+
+export type ChamberDetailData = {
+  chamber: Chamber
+  stats: ChamberStats
+  runs: ChamberRun[]
+  expenses: ChamberExpense[]
+}
+
 export type IntakeReceipt = {
   id: string
   farmerName: string

@@ -225,6 +225,9 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 		if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1`, *b.ChamberID, b.ID, out.GreenWeightKg); err != nil {
 			return Batch{}, err
 		}
+		if err := openChamberRun(ctx, tx, *b.ChamberID, out); err != nil {
+			return Batch{}, err
+		}
 	}
 	// Own purchase → post what the house owes the farmer for the green.
 	if out.Ownership == "OWN" && out.RatePerKg > 0 {
@@ -340,6 +343,9 @@ func (s *Store) AdvanceBatch(ctx context.Context, id string) (Batch, error) {
 			`UPDATE chambers SET status='IDLE', batch_id=NULL, load_kg=0 WHERE batch_id=$1`, id); err != nil {
 			return Batch{}, err
 		}
+		if err := closeChamberRun(ctx, tx, id, b.DriedWeightKg); err != nil {
+			return Batch{}, err
+		}
 	}
 	b.Stage = next
 
@@ -386,6 +392,9 @@ func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string) (Batch
 		return Batch{}, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1`, chamberID, batchID, out.GreenWeightKg); err != nil {
+		return Batch{}, err
+	}
+	if err := openChamberRun(ctx, tx, chamberID, out); err != nil {
 		return Batch{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -630,6 +639,9 @@ func (s *Store) LoadIntake(ctx context.Context, receiptID, chamberID string) (Ba
 		if err := postFarmerTx(ctx, tx, batch.FarmerID, "PURCHASE", amt, "Green purchase · "+batch.LotCode, batch.ID); err != nil {
 			return Batch{}, err
 		}
+	}
+	if err := openChamberRun(ctx, tx, chamberID, batch); err != nil {
+		return Batch{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Batch{}, err

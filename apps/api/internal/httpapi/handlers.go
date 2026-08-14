@@ -317,6 +317,46 @@ func (a *API) toggleChamber(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, c)
 }
 
+func (a *API) getChamberDetail(w http.ResponseWriter, r *http.Request) {
+	out, err := a.store.GetChamberDetail(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "chamber not found")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not load chamber detail")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+type chamberExpenseBody struct {
+	Amount   float64 `json:"amount"`
+	Category string  `json:"category"`
+	Note     string  `json:"note"`
+}
+
+func (a *API) addChamberExpense(w http.ResponseWriter, r *http.Request) {
+	var body chamberExpenseBody
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.Amount <= 0 {
+		writeError(w, http.StatusBadRequest, "amount must be positive")
+		return
+	}
+	out, err := a.store.AddChamberExpense(r.Context(), store.ChamberExpense{
+		ChamberID: chi.URLParam(r, "id"),
+		Amount:    body.Amount,
+		Category:  strings.TrimSpace(body.Category),
+		Note:      strings.TrimSpace(body.Note),
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not add expense")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 // ── Intake ──
 
 func (a *API) listIntake(w http.ResponseWriter, r *http.Request) {

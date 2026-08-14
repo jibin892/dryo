@@ -1,6 +1,8 @@
 import type {
   Batch,
   Chamber,
+  ChamberDetailData,
+  ChamberExpense,
   Farmer,
   FarmerDetail,
   FarmerTransaction,
@@ -33,6 +35,9 @@ export const dryoApi = {
   listChambers: () => api.get<Chamber[]>('/chambers'),
   createChamber: (input: Partial<Chamber>) => api.post<Chamber>('/chambers', input),
   toggleChamber: (id: string) => api.post<Chamber>(`/chambers/${id}/toggle`),
+  chamberDetail: (id: string) => api.get<ChamberDetailData>(`/chambers/${id}/detail`),
+  addChamberExpense: (id: string, input: { amount: number; category?: string; note?: string }) =>
+    api.post<ChamberExpense>(`/chambers/${id}/expenses`, input),
 
   listIntake: () => api.get<IntakeReceipt[]>('/intake'),
   createIntake: (input: Partial<IntakeReceipt>) => api.post<IntakeReceipt>('/intake', input),
