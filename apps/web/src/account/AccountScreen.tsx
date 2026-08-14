@@ -2,7 +2,17 @@ import { Bell, Building2, LogOut, ShieldCheck, SlidersHorizontal, Tag, Users, Us
 import type { Session } from '../shared/contracts'
 import { canManageMembers } from '../shared/contracts'
 import { promptOneSignal } from '../notifications/oneSignal'
+import { dryoApi } from '../api/dryo'
 import { Button, ListRow, Pill, ScreenHeading, SectionHeader } from '../shared/ui/components'
+
+async function runPushTest() {
+  try {
+    const r = await dryoApi.testPush()
+    alert(r.reason)
+  } catch {
+    alert('Could not run the test — is the app online?')
+  }
+}
 
 const ROLE_LABEL: Record<Session['role'], string> = {
   OWNER: 'Curing house owner',
@@ -84,7 +94,8 @@ export function AccountScreen({
 
       <SectionHeader title="Preferences" />
       <div className="list-group">
-        <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Push notifications" subtitle="Over-temp alerts, batches, sales" value="Enable" onClick={() => promptOneSignal()} />
+        <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Push notifications" subtitle="Batches, sales, payments — from your team" value="Enable" onClick={() => promptOneSignal()} />
+        <ListRow lead={<Bell aria-hidden="true" size={20} />} title="Send test notification" subtitle="Check push works on this device" value="Test" onClick={() => void runPushTest()} />
       </div>
 
       <div className="sticky-action">

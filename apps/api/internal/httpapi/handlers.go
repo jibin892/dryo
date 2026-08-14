@@ -264,6 +264,11 @@ func (a *API) setBatchPaid(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not update payment status")
 		return
 	}
+	if out.Paid {
+		a.recordActivity(r.Context(), "Payment settled · "+out.LotCode, "marked "+out.LotCode+" as paid")
+	} else {
+		a.recordActivity(r.Context(), "Payment reopened · "+out.LotCode, "marked "+out.LotCode+" as unpaid")
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -290,6 +295,7 @@ func (a *API) loadBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load batch into chamber")
 		return
 	}
+	a.recordActivity(r.Context(), "Lot "+out.LotCode+" → Drying", fmt.Sprintf("loaded %s into a chamber (%.0f kg drying)", out.LotCode, out.GreenWeightKg))
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -302,7 +308,16 @@ func (a *API) advanceBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not advance batch")
 		return
 	}
+	a.recordActivity(r.Context(), "Lot "+b.LotCode+" → "+stageTitle(b.Stage), fmt.Sprintf("moved %s to %s", b.LotCode, stageTitle(b.Stage)))
 	writeJSON(w, http.StatusOK, b)
+}
+
+// stageTitle renders a batch stage as Title Case for notifications.
+func stageTitle(stage string) string {
+	if stage == "" {
+		return stage
+	}
+	return strings.ToUpper(stage[:1]) + strings.ToLower(stage[1:])
 }
 
 // ── Chambers ──

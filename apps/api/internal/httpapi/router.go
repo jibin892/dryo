@@ -94,6 +94,7 @@ func NewRouter(cfg config.Config, verifier *auth.Verifier, st *store.Store) http
 
 				r.Get("/notifications", api.listNotifications)
 				r.Post("/notifications/read", api.markNotificationsRead)
+				r.Post("/notifications/test", api.testPush)
 
 				// Owner/Manager only.
 				r.Group(func(r chi.Router) {

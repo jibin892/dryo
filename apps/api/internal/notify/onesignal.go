@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -42,6 +43,40 @@ func (o *OneSignal) PushToExternal(externalIDs []string, heading, content string
 	o.send(heading, content, map[string]any{
 		"include_aliases": map[string][]string{"external_id": externalIDs},
 	})
+}
+
+// TestPush sends a push to a single user synchronously and reports the OneSignal
+// HTTP status and how many devices it reached — for an in-app "test push" check.
+func (o *OneSignal) TestPush(externalID, heading, content string) (status int, recipients int, err error) {
+	if !o.Enabled() {
+		return 0, 0, nil
+	}
+	body, _ := json.Marshal(map[string]any{
+		"app_id":          o.appID,
+		"target_channel":  "push",
+		"include_aliases": map[string][]string{"external_id": {externalID}},
+		"headings":        map[string]string{"en": heading},
+		"contents":        map[string]string{"en": content},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return 0, 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Key "+o.apiKey)
+	resp, err := o.client.Do(req)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	var out struct {
+		Recipients int `json:"recipients"`
+	}
+	_ = json.Unmarshal(raw, &out)
+	return resp.StatusCode, out.Recipients, nil
 }
 
 // send posts a notification with the given targeting fields merged in.

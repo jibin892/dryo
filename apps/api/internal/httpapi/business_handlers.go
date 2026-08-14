@@ -401,6 +401,33 @@ func (a *API) listNotifications(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+// testPush sends a push to the caller and reports whether it reached a device —
+// so the user can verify OneSignal end-to-end from inside the app.
+func (a *API) testPush(w http.ResponseWriter, r *http.Request) {
+	u, ok := userFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	if !a.notify.Enabled() {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "reason": "Push isn't configured on the server — set ONESIGNAL_APP_ID and ONESIGNAL_REST_API_KEY in Render."})
+		return
+	}
+	status, recipients, err := a.notify.TestPush(u.UID, "Dryo test ✅", "If you're seeing this, push notifications work.")
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "reason": "Could not reach OneSignal: " + err.Error()})
+		return
+	}
+	switch {
+	case status >= 300:
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "status": status, "reason": "OneSignal rejected the request (status " + fmt.Sprint(status) + ") — check the REST API key."})
+	case recipients == 0:
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "status": status, "recipients": 0, "reason": "Server → OneSignal works, but this device isn't subscribed. Tap 'Push notifications' to allow, then test again. (On iPhone, install the app to the Home Screen first.)"})
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": status, "recipients": recipients, "reason": fmt.Sprintf("Sent to %d device(s) — check your phone.", recipients)})
+	}
+}
+
 func (a *API) markNotificationsRead(w http.ResponseWriter, r *http.Request) {
 	u, ok := userFrom(r.Context())
 	if !ok {

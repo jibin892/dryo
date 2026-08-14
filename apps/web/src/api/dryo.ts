@@ -94,6 +94,7 @@ export const dryoApi = {
 
   listNotifications: () => api.get<DryoNotification[]>('/notifications'),
   markNotificationsRead: () => api.post<{ status: string }>('/notifications/read'),
+  testPush: () => api.post<{ ok: boolean; status?: number; recipients?: number; reason: string }>('/notifications/test'),
 
   reportSummary: (range?: { from: string; to: string }) =>
     api.get<ReportSummary>(range ? `/reports/summary?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}` : '/reports/summary'),
