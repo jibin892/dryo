@@ -13,6 +13,37 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Boot watchdog: if the app hasn't mounted a few seconds after load, the
+      // cached shell is likely stale (points at a purged JS bundle → white
+      // screen). Self-heal once: drop the service worker + caches and hard
+      // reload to fetch a fresh build. Guarded so it can never loop.
+      (function () {
+        var KEY = 'dryo-healed-at';
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            var root = document.getElementById('root');
+            if (window.__dryoBooted || (root && root.childElementCount > 0)) return;
+            if (Date.now() - Number(sessionStorage.getItem(KEY) || 0) < 30000) return;
+            sessionStorage.setItem(KEY, String(Date.now()));
+            var done = function () { location.reload(); };
+            var p = Promise.resolve();
+            if ('serviceWorker' in navigator) {
+              p = navigator.serviceWorker.getRegistrations().then(function (rs) {
+                return Promise.all(rs.map(function (r) { return r.unregister(); }));
+              });
+            }
+            p.then(function () {
+              if (window.caches) {
+                return caches.keys().then(function (ks) {
+                  return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+                });
+              }
+            }).then(done, done);
+          }, 6000);
+        });
+      })();
+    </script>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -25,8 +25,31 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Precache immutable, content-hashed assets only — NOT index.html.
+        // A cached index.html is what leaves an installed PWA pointing at a
+        // purged JS bundle after a deploy (→ blank screen on refresh).
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
         cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        // Disable the default cache-first index.html navigation route — it's the
+        // stale shell. Our NetworkFirst navigate handler below serves fresh HTML.
+        navigateFallback: null,
+        // Navigations go network-first: always fetch the freshest HTML (whose
+        // asset hashes match the current build), falling back to the last good
+        // cached copy only when offline.
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'dryo-html',
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 8 },
+            },
+          },
+        ],
       },
     }),
   ],
