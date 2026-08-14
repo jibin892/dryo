@@ -7,7 +7,6 @@ import { AuthFlow } from '../auth/AuthScreens'
 import { DashboardScreen } from '../dashboard/DashboardScreen'
 import { BatchDetail, BatchesScreen } from '../batches/BatchScreens'
 import { ChamberDetail, ChambersScreen } from '../chambers/ChamberScreens'
-import { IntakeScreen } from '../intake/IntakeScreen'
 import { InventoryScreen } from '../inventory/InventoryScreen'
 import { AccountScreen } from '../account/AccountScreen'
 import { TeamScreen } from '../account/TeamScreen'
@@ -133,12 +132,6 @@ export function App() {
     if (selectedChamber && (routedChamber || wide)) {
       detail = <ChamberDetail key={selectedChamber.id} chamber={selectedChamber} />
       if (routedChamber) mobileDetail = { title: 'Chamber details', onBack: () => goBack('/chambers') }
-    }
-  } else if (currentPath === '/intake') {
-    content = <IntakeScreen />
-    if (canManageMembers(session.role)) {
-      activePath = '/account'
-      if (wide === false) mobileDetail = { title: 'Intake', onBack: () => goBack('/account') }
     }
   } else if (currentPath === '/inventory') {
     content = <InventoryScreen canEdit={canManageMembers(session.role)} />

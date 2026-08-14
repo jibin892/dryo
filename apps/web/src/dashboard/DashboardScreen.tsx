@@ -109,7 +109,7 @@ export function DashboardScreen({
           />
         ))}
         {activeBatches.length === 0 && (
-          <div className="empty-state"><p>No batches drying right now. Load a chamber from Intake.</p></div>
+          <div className="empty-state"><p>No batches drying right now. Add a lot from Batches to get started.</p></div>
         )}
       </div>
 

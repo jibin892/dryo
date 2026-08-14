@@ -1,4 +1,4 @@
-import { Bell, Building2, LogOut, PackageCheck, ShieldCheck, SlidersHorizontal, Tag, Users, UserRound, Warehouse, Wheat } from 'lucide-react'
+import { Bell, Building2, LogOut, ShieldCheck, SlidersHorizontal, Tag, Users, UserRound, Warehouse, Wheat } from 'lucide-react'
 import type { Session } from '../shared/contracts'
 import { canManageMembers } from '../shared/contracts'
 import { promptOneSignal } from '../notifications/oneSignal'
@@ -38,12 +38,6 @@ export function AccountScreen({
         <>
           <SectionHeader title="Operations" />
           <div className="list-group">
-            <ListRow
-              lead={<PackageCheck aria-hidden="true" size={20} />}
-              title="Intake"
-              subtitle="Green cardamom weigh-in"
-              onClick={() => onNavigate('/intake')}
-            />
             <ListRow
               lead={<Warehouse aria-hidden="true" size={20} />}
               title="Inventory"

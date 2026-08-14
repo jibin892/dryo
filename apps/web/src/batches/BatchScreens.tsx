@@ -11,11 +11,12 @@ import { FarmerPicker } from '../shared/ui/FarmerPicker'
 import { GradePicker } from '../shared/ui/GradePicker'
 import '../business/business.css'
 
-const FILTERS = ['Active', 'Ready', 'All'] as const
+const FILTERS = ['Active', 'Intake', 'Ready', 'All'] as const
 type Filter = (typeof FILTERS)[number]
 
 function matchesFilter(batch: Batch, filter: Filter): boolean {
   if (filter === 'All') return true
+  if (filter === 'Intake') return batch.stage === 'INTAKE'
   if (filter === 'Ready') return batch.stage === 'READY' || batch.stage === 'GRADING'
   return batch.stage === 'INTAKE' || batch.stage === 'DRYING' || batch.stage === 'CURING'
 }
@@ -27,17 +28,26 @@ export function BatchesScreen({ selectedId, onSelect }: { selectedId?: string; o
   const [adding, setAdding] = useState(false)
   const visible = useMemo(() => batches.filter((batch) => matchesFilter(batch, filter)), [batches, filter])
 
+  const awaiting = useMemo(() => batches.filter((b) => b.stage === 'INTAKE'), [batches])
+  const awaitingKg = awaiting.reduce((sum, b) => sum + b.greenWeightKg, 0)
+
   return (
     <>
-      <ScreenHeading eyebrow="Traceable lots" title="Batches" description="Every lot from farmer intake to dispatch, one tap deep." />
+      <ScreenHeading eyebrow="Traceable lots" title="Batches" description="Every lot from green weigh-in to dispatch. Add a lot, then load it into a chamber to start drying." />
+
+      {awaiting.length > 0 && (
+        <StatusBanner tone="warning">
+          {awaiting.length} lot{awaiting.length > 1 ? 's' : ''} awaiting a chamber · {awaitingKg.toLocaleString('en-IN')} kg green. Open one to load it.
+        </StatusBanner>
+      )}
 
       <div className="section-header">
         <h2>New lot</h2>
         <button className="chip" type="button" onClick={() => setAdding((v) => !v)}>
-          <Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New batch
+          <Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />New lot
         </button>
       </div>
-      <BottomSheet open={adding} onClose={() => setAdding(false)} title="New batch">
+      <BottomSheet open={adding} onClose={() => setAdding(false)} title="New lot">
         <NewBatch
           suggestedLot={`VDM-${1046 + batches.filter((b) => b.lotCode.startsWith('VDM-')).length}`}
           onCreate={(input) => { createBatch(input); setAdding(false) }}

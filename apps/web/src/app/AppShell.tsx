@@ -5,7 +5,6 @@ import {
   Boxes,
   Flame,
   LayoutDashboard,
-  PackageCheck,
   Receipt,
   ScrollText,
   UserRound,
@@ -34,8 +33,8 @@ const roleNavigation: Record<Role, NavigationItem[]> = {
   MANAGER: managerNav,
   OPERATOR: [
     { label: 'Today', path: '/today', icon: ScrollText },
+    { label: 'Batches', path: '/batches', icon: Boxes },
     { label: 'Chambers', path: '/chambers', icon: Flame },
-    { label: 'Intake', path: '/intake', icon: PackageCheck },
     { label: 'Account', path: '/account', icon: UserRound },
   ],
 }
