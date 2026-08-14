@@ -38,7 +38,7 @@ export type NewBatchInput = {
   curingRatePerKg?: number
   grade?: Grade
   chamberId?: string
-  gradingCharge?: number
+  gradingEnabled?: boolean
 }
 
 type DryoState = {
@@ -107,7 +107,7 @@ export const useDryo = create<DryoState>((set) => ({
       ownership: input.ownership ?? 'OWN',
       farmerId: input.farmerId ?? null,
       grade: input.grade,
-      gradingCharge: input.gradingCharge,
+      gradingEnabled: input.gradingEnabled,
     }
     set((state) => ({
       batches: [optimistic, ...state.batches],

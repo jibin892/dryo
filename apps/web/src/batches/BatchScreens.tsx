@@ -99,36 +99,32 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
   const [note, setNote] = useState('')
   const [chamberSel, setChamberSel] = useState('')
   const [gradingOn, setGradingOn] = useState(false)
-  const [gradingPerKg, setGradingPerKg] = useState(true)
-  const [gradingRate, setGradingRate] = useState('')
+  const [gradingAddon, setGradingAddon] = useState<{ rate: number; perKg: boolean } | null>(null)
   const chambers = useDryo((s) => s.chambers)
   const idleChambers = chambers.filter((c) => c.status === 'IDLE')
 
   useEffect(() => {
     dryoApi.listPricing().then(setPrices).catch(() => setPrices([]))
-    // Pre-fill the grading add-on from its central price, if one is set.
+    // Read the central Grading add-on price (charged after drying, on dried kg).
     dryoApi.listAddons().then((addons) => {
       const g = addons.find((a) => a.id === 'addon-grading' || a.name.toLowerCase() === 'grading')
-      if (g) {
-        setGradingPerKg(g.perKg)
-        if (g.rate > 0) setGradingRate(String(g.rate))
-      }
+      if (g) setGradingAddon({ rate: g.rate, perKg: g.perKg })
     }).catch(() => undefined)
   }, [])
 
   const greenKg = Number(greenWeightKg) || 0
-  const gradingCharge = gradingOn ? (gradingPerKg ? Math.round((Number(gradingRate) || 0) * greenKg) : Number(gradingRate) || 0) : 0
 
-  // Picking a grade auto-fills the green rate: dried cost × yield ≈ what the
-  // green is worth per kg (own-purchase only; job-work uses a curing charge).
   function onGradePick(p: GradePrice | null) {
     setGrade(p ? (p.grade as Grade) : '')
-    if (p && ownership === 'OWN') setRate(String(Math.round(p.costRatePerKg * p.yieldRatio)))
   }
 
   const gradePrice = prices.find((p) => p.grade === grade)
-  const estDried = gradePrice && Number(greenWeightKg) > 0 ? Math.round(Number(greenWeightKg) * gradePrice.yieldRatio) : null
-  const valid = lotCode.trim().length > 0 && !!farmer && Number(greenWeightKg) > 0
+  const estDried = gradePrice && greenKg > 0 ? Math.round(greenKg * gradePrice.yieldRatio) : null
+  // Grading is billed on the DRIED weight, after drying — this is just an estimate.
+  const gradingEst = gradingOn && gradingAddon
+    ? (gradingAddon.perKg ? Math.round(gradingAddon.rate * (estDried ?? 0)) : gradingAddon.rate)
+    : 0
+  const valid = lotCode.trim().length > 0 && !!farmer && greenKg > 0
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -147,7 +143,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
       grade: grade || undefined,
       note: note.trim() || undefined,
       chamberId: chamberSel || undefined,
-      gradingCharge,
+      gradingEnabled: gradingOn,
     })
   }
 
@@ -170,7 +166,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         <input className="biz-input" placeholder="Moisture %" value={currentMoisture} onChange={(e) => setMoisture(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
       </div>
 
-      <GradePicker value={grade} prices={prices} greenKg={Number(greenWeightKg) || 0} onChange={onGradePick} />
+      <GradePicker value={grade} prices={prices} onChange={onGradePick} />
       {estDried != null && gradePrice && (
         <p className="detail-sub" style={{ padding: '0 4px' }}>
           Est. dried ≈ <strong>{estDried} kg</strong> ({Math.round(gradePrice.yieldRatio * 100)}% yield) · sell ₹{gradePrice.sellRatePerKg}/kg · cost ₹{gradePrice.costRatePerKg}/kg
@@ -184,14 +180,9 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
         inputMode="decimal"
       />
-      {ownership === 'OWN' && gradePrice && (
+      {ownership === 'OWN' && greenKg > 0 && Number(rate) > 0 && (
         <p className="detail-sub" style={{ padding: '0 4px' }}>
-          Suggested green rate ₹{Math.round(gradePrice.costRatePerKg * gradePrice.yieldRatio).toLocaleString('en-IN')}/kg = cost ₹{gradePrice.costRatePerKg}/kg × {Math.round(gradePrice.yieldRatio * 100)}% yield. Edit if you paid differently.
-        </p>
-      )}
-      {ownership === 'OWN' && Number(greenWeightKg) > 0 && Number(rate) > 0 && (
-        <p className="detail-sub" style={{ padding: '0 4px' }}>
-          Total payable to farmer: <strong>₹{(Number(greenWeightKg) * Number(rate)).toLocaleString('en-IN')}</strong> ({greenWeightKg} kg × ₹{rate})
+          Total payable to farmer: <strong>₹{Math.round(greenKg * Number(rate)).toLocaleString('en-IN')}</strong> ({greenKg} kg × ₹{rate})
         </p>
       )}
 
@@ -209,18 +200,16 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         </button>
       </div>
       {gradingOn && (
-        <>
-          <div className="chip-row" style={{ padding: '2px 0' }}>
-            <button type="button" className={`chip ${gradingPerKg ? 'is-active' : ''}`} onClick={() => setGradingPerKg(true)}>Per kg</button>
-            <button type="button" className={`chip ${!gradingPerKg ? 'is-active' : ''}`} onClick={() => setGradingPerKg(false)}>Flat charge</button>
-          </div>
-          <input className="biz-input" placeholder={gradingPerKg ? 'Grading ₹ / kg' : 'Grading flat ₹'} value={gradingRate} onChange={(e) => setGradingRate(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
-          {greenKg > 0 && Number(gradingRate) > 0 && (
-            <p className="detail-sub" style={{ padding: '0 4px' }}>
-              Grading charge: <strong>₹{gradingCharge.toLocaleString('en-IN')}</strong>{gradingPerKg ? ` (${greenKg} kg × ₹${gradingRate})` : ''}
-            </p>
-          )}
-        </>
+        gradingAddon && gradingAddon.rate > 0 ? (
+          <p className="detail-sub" style={{ padding: '0 4px' }}>
+            Grading {gradingAddon.perKg ? `₹${gradingAddon.rate}/kg dried` : `₹${gradingAddon.rate} flat`} · charged after drying on the dried weight
+            {gradingAddon.perKg && estDried != null ? ` ≈ ₹${gradingEst.toLocaleString('en-IN')} (est. ${estDried} kg dried)` : ''}
+          </p>
+        ) : (
+          <p className="detail-sub" style={{ padding: '0 4px' }}>
+            Set the Grading price on <strong>Pricing → Add-ons</strong>. It's charged on the dried weight once drying is done.
+          </p>
+        )
       )}
 
       <input className="biz-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -241,7 +230,7 @@ function BatchEditForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (pat
   const [currentMoisture, setMoisture] = useState(String(batch.currentMoisture))
   const [ratePerKg, setRate] = useState(String(batch.ratePerKg))
   const [grade, setGrade] = useState<Grade | ''>(batch.grade ?? '')
-  const [gradingCharge, setGradingCharge] = useState(batch.gradingCharge ? String(batch.gradingCharge) : '')
+  const [gradingEnabled, setGradingEnabled] = useState(!!batch.gradingEnabled)
   const [note, setNote] = useState(batch.note ?? '')
 
   const dried = Number(driedWeightKg)
@@ -258,7 +247,7 @@ function BatchEditForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (pat
       currentMoisture: Number(currentMoisture) || 0,
       ratePerKg: Number(ratePerKg) || 0,
       grade: grade === '' ? undefined : grade,
-      gradingCharge: gradingCharge === '' ? 0 : Number(gradingCharge),
+      gradingEnabled,
       note,
     })
   }
@@ -281,7 +270,13 @@ function BatchEditForm({ batch, onSave, onCancel }: { batch: Batch; onSave: (pat
         <option value="">Not graded (optional)</option>
         {GRADES.map((g) => <option key={g} value={g}>{GRADE_LABEL[g]}</option>)}
       </select>
-      <input className="biz-input" placeholder="Grading charge ₹ (add-on, separate from drying)" value={gradingCharge} onChange={(e) => setGradingCharge(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+      <div className="chip-row" style={{ padding: '2px 0' }}>
+        <button type="button" className={`chip ${gradingEnabled ? 'is-active' : ''}`} onClick={() => setGradingEnabled((v) => !v)}>
+          {gradingEnabled ? '✓ ' : '＋ '}Grading add-on
+        </button>
+      </div>
+      {gradingEnabled && <p className="detail-sub" style={{ padding: '0 4px' }}>Charged on the dried weight at grading, using the central Grading price.</p>}
+      {batch.gradingCharge ? <p className="detail-sub" style={{ padding: '0 4px' }}>Billed grading: ₹{batch.gradingCharge.toLocaleString('en-IN')}</p> : null}
       <input className="biz-input" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <div style={{ display: 'flex', gap: 12 }}>
         <Button type="submit">Save batch</Button>
@@ -352,7 +347,7 @@ export function BatchDetail({ batch }: { batch: Batch }) {
           <div className="field"><small>Rate</small><strong>₹{batch.ratePerKg.toLocaleString('en-IN')}/kg</strong></div>
           <div className="field"><small>Grade</small><strong>{batch.grade ? GRADE_LABEL[batch.grade] : 'Pending'}</strong></div>
           <div className="field"><small>Chamber</small><strong>{chamber ? chamber.name : '—'}</strong></div>
-          <div className="field"><small>Grading add-on</small><strong>{batch.gradingCharge ? `₹${batch.gradingCharge.toLocaleString('en-IN')}` : '—'}</strong></div>
+          <div className="field"><small>Grading add-on</small><strong>{batch.gradingCharge ? `₹${batch.gradingCharge.toLocaleString('en-IN')}` : batch.gradingEnabled ? 'On · after drying' : '—'}</strong></div>
         </div>
       </div>
 

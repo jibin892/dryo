@@ -81,5 +81,6 @@ export const dryoApi = {
   getSettings: () => api.get<HouseSettings>('/settings'),
   updateSettings: (input: HouseSettings) => api.patch<HouseSettings>('/settings', input),
 
-  reportSummary: () => api.get<ReportSummary>('/reports/summary'),
+  reportSummary: (range?: { from: string; to: string }) =>
+    api.get<ReportSummary>(range ? `/reports/summary?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}` : '/reports/summary'),
 }

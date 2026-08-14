@@ -137,7 +137,7 @@ export function App() {
     content = <InventoryScreen canEdit={canManageMembers(session.role)} />
     if (canManageMembers(session.role)) {
       activePath = '/account'
-      if (wide === false) mobileDetail = { title: 'Inventory', onBack: () => goBack('/account') }
+      if (wide === false) mobileDetail = { title: 'Stock', onBack: () => goBack('/account') }
     }
   } else {
     content = <DashboardScreen role={session.role} firstName={firstName} onOpenBatch={openBatch} onOpenChamber={openChamber} />

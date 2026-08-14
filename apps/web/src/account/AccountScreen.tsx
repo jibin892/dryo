@@ -40,8 +40,8 @@ export function AccountScreen({
           <div className="list-group">
             <ListRow
               lead={<Warehouse aria-hidden="true" size={20} />}
-              title="Inventory"
-              subtitle="Graded stock & value"
+              title="Stock"
+              subtitle="What's in store, by grade & value"
               onClick={() => onNavigate('/inventory')}
             />
           </div>

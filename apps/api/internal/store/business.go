@@ -78,6 +78,8 @@ type ReportSummary struct {
 	Receivables      float64 `json:"receivables"`
 	AvgYieldPct      float64 `json:"avgYieldPct"`
 	StockValueAtCost float64 `json:"stockValueAtCost"`
+	GreenInKg        float64 `json:"greenInKg"`      // date-scoped
+	ExpenseTotal     float64 `json:"expenseTotal"`   // date-scoped
 }
 
 // ─────────────────────────── farmers ───────────────────────────
@@ -300,22 +302,26 @@ func (s *Store) CreateSale(ctx context.Context, sale Sale) (Sale, error) {
 
 // ─────────────────────────── reports ───────────────────────────
 
-func (s *Store) ReportSummary(ctx context.Context) (ReportSummary, error) {
+// ReportSummary rolls up the house. Flow metrics (sales, green-in, expenses) are
+// scoped to [from, to); stock/payable metrics are always current (point-in-time).
+func (s *Store) ReportSummary(ctx context.Context, from, to time.Time) (ReportSummary, error) {
 	var r ReportSummary
 	q := `
 		SELECT
 			(SELECT count(*) FROM batches WHERE stage IN ('DRYING','CURING')),
 			(SELECT COALESCE(SUM(dried_weight_kg),0) FROM batches WHERE stage='READY'),
 			(SELECT COALESCE(SUM(bulk_kg),0) FROM inventory_lots),
-			(SELECT COALESCE(SUM(amount),0) FROM sales),
-			(SELECT count(*) FROM sales),
+			(SELECT COALESCE(SUM(amount),0) FROM sales WHERE sold_at >= $1 AND sold_at < $2),
+			(SELECT count(*) FROM sales WHERE sold_at >= $1 AND sold_at < $2),
 			(SELECT COALESCE(SUM(bal),0) FROM (SELECT SUM(amount) bal FROM farmer_transactions GROUP BY farmer_id HAVING SUM(amount) > 0) p),
 			(SELECT COALESCE(-SUM(bal),0) FROM (SELECT SUM(amount) bal FROM farmer_transactions GROUP BY farmer_id HAVING SUM(amount) < 0) n),
 			(SELECT COALESCE(AVG(dried_weight_kg / NULLIF(green_weight_kg,0)) * 100, 0) FROM batches WHERE dried_weight_kg IS NOT NULL),
-			(SELECT COALESCE(SUM(bulk_kg * cost_per_kg), 0) FROM inventory_lots)
+			(SELECT COALESCE(SUM(bulk_kg * cost_per_kg), 0) FROM inventory_lots),
+			(SELECT COALESCE(SUM(green_weight_kg),0) FROM batches WHERE started_at >= $1 AND started_at < $2),
+			(SELECT COALESCE(SUM(amount),0) FROM chamber_expenses WHERE spent_at >= $1 AND spent_at < $2)
 	`
-	err := s.pool.QueryRow(ctx, q).Scan(
+	err := s.pool.QueryRow(ctx, q, from, to).Scan(
 		&r.ActiveBatches, &r.ReadyKg, &r.StoreKg, &r.SalesTotal, &r.SalesCount,
-		&r.Payables, &r.Receivables, &r.AvgYieldPct, &r.StockValueAtCost)
+		&r.Payables, &r.Receivables, &r.AvgYieldPct, &r.StockValueAtCost, &r.GreenInKg, &r.ExpenseTotal)
 	return r, err
 }

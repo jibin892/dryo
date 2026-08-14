@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Boxes, Coins, Droplets, Flame, PackageCheck, Receipt, ThermometerSun, TrendingUp, TriangleAlert, Wallet } from 'lucide-react'
 import type { ReportSummary, Role } from '../shared/contracts'
 import { STAGE_LABEL } from '../shared/contracts'
@@ -8,21 +8,65 @@ import { dryoApi } from '../api/dryo'
 import { money } from '../business/FarmersScreen'
 import { Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatCard, StatusBanner } from '../shared/ui/components'
 
+const PERIODS = ['Today', 'Yesterday', 'Week', 'Month', 'Custom'] as const
+type Period = (typeof PERIODS)[number]
+const DAY = 86_400_000
+
+// Local-time period boundaries → absolute ISO instants (TZ-correct against the DB).
+function periodRange(p: Period, cf: string, ct: string): { from: string; to: string } {
+  const now = new Date()
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  let from = startToday
+  let to = new Date(startToday.getTime() + DAY)
+  if (p === 'Yesterday') { from = new Date(startToday.getTime() - DAY); to = startToday }
+  else if (p === 'Week') { const dow = (startToday.getDay() + 6) % 7; from = new Date(startToday.getTime() - dow * DAY) }
+  else if (p === 'Month') { from = new Date(now.getFullYear(), now.getMonth(), 1) }
+  else if (p === 'Custom') {
+    from = cf ? new Date(cf) : startToday
+    to = ct ? new Date(new Date(ct).getTime() + DAY) : new Date(startToday.getTime() + DAY)
+  }
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
 function BusinessOverview() {
+  const [period, setPeriod] = useState<Period>('Month')
+  const [cf, setCf] = useState('')
+  const [ct, setCt] = useState('')
   const [r, setR] = useState<ReportSummary | null>(null)
+  const range = useMemo(() => periodRange(period, cf, ct), [period, cf, ct])
   useEffect(() => {
-    dryoApi.reportSummary().then(setR).catch(() => setR(null))
-  }, [])
-  if (!r) return null
+    dryoApi.reportSummary(range).then(setR).catch(() => setR(null))
+  }, [range.from, range.to])
+
   return (
     <>
       <SectionHeader title="Business" />
-      <div className="stat-grid">
-        <StatCard label="Sales" value={money(r.salesTotal)} icon={Receipt} accent />
-        <StatCard label="To pay farmers" value={money(r.payables)} icon={Wallet} />
-        <StatCard label="Stock at cost" value={money(r.stockValueAtCost)} icon={Coins} />
-        <StatCard label="Avg yield" value={Math.round(r.avgYieldPct)} unit="%" icon={TrendingUp} />
+      <div className="chip-row" role="tablist" aria-label="Period">
+        {PERIODS.map((p) => (
+          <button key={p} role="tab" aria-selected={period === p} className={`chip ${period === p ? 'is-active' : ''}`} type="button" onClick={() => setPeriod(p)}>{p}</button>
+        ))}
       </div>
+      {period === 'Custom' && (
+        <div style={{ display: 'flex', gap: 12, padding: '0 20px 4px' }}>
+          <input type="date" className="biz-input" value={cf} onChange={(e) => setCf(e.target.value)} />
+          <input type="date" className="biz-input" value={ct} onChange={(e) => setCt(e.target.value)} />
+        </div>
+      )}
+      {r && (
+        <>
+          <div className="stat-grid">
+            <StatCard label="Sales" value={money(r.salesTotal)} icon={Receipt} accent />
+            <StatCard label="Green bought" value={Math.round(r.greenInKg)} unit="kg" icon={PackageCheck} />
+            <StatCard label="Expenses" value={money(r.expenseTotal)} icon={Coins} />
+            <StatCard label="To pay farmers" value={money(r.payables)} icon={Wallet} />
+          </div>
+          <p className="detail-sub" style={{ padding: '2px 20px 0' }}>Sales, green &amp; expenses are for the selected period. To pay farmers is the current balance.</p>
+          <div className="stat-grid">
+            <StatCard label="Stock at cost" value={money(r.stockValueAtCost)} icon={Coins} />
+            <StatCard label="Avg yield" value={Math.round(r.avgYieldPct)} unit="%" icon={TrendingUp} />
+          </div>
+        </>
+      )}
     </>
   )
 }

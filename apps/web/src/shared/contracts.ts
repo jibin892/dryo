@@ -87,6 +87,7 @@ export type Batch = {
   farmerId?: string | null
   curingRatePerKg?: number
   gradingCharge?: number
+  gradingEnabled?: boolean
 }
 
 export type ChamberStatus = 'IDLE' | 'HEATING' | 'DRYING' | 'CURING' | 'COOLING' | 'FAULT'
@@ -259,4 +260,6 @@ export type ReportSummary = {
   receivables: number
   avgYieldPct: number
   stockValueAtCost: number
+  greenInKg: number
+  expenseTotal: number
 }

@@ -52,7 +52,7 @@ export function InventoryScreen({ canEdit = false }: { canEdit?: boolean }) {
 
   return (
     <>
-      <ScreenHeading eyebrow="Graded stock" title="Inventory" description="Cured stock with cost basis and margin at today's prices." />
+      <ScreenHeading eyebrow="Stock on hand" title="Stock" description="What's physically in your store right now, by grade — with cost basis and value. Sales draw down from here." />
       {banner && <StatusBanner tone={banner.tone}>{banner.text}</StatusBanner>}
 
       <div className="stat-grid">

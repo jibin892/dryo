@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -335,8 +336,31 @@ func (a *API) createSale(w http.ResponseWriter, r *http.Request) {
 
 // ── Reports ──
 
+// parseReportRange reads ?from=&to= (RFC3339 or YYYY-MM-DD). Missing bounds
+// default to "all time". A bare date `to` is treated as inclusive (end of day).
+func parseReportRange(r *http.Request) (time.Time, time.Time) {
+	from := time.Unix(0, 0)
+	to := time.Now().Add(24 * time.Hour)
+	if v := r.URL.Query().Get("from"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			from = t
+		} else if t, err := time.Parse("2006-01-02", v); err == nil {
+			from = t
+		}
+	}
+	if v := r.URL.Query().Get("to"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			to = t
+		} else if t, err := time.Parse("2006-01-02", v); err == nil {
+			to = t.Add(24 * time.Hour)
+		}
+	}
+	return from, to
+}
+
 func (a *API) reportSummary(w http.ResponseWriter, r *http.Request) {
-	summary, err := a.store.ReportSummary(r.Context())
+	from, to := parseReportRange(r)
+	summary, err := a.store.ReportSummary(r.Context(), from, to)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not build report")
 		return
