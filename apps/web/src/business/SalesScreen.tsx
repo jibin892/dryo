@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Gavel, Plus, Receipt, Store } from 'lucide-react'
+import { Gavel, Plus, Receipt, Store, Trash2 } from 'lucide-react'
 import type { GradePrice, InventoryLot, Sale, SaleChannel, StockGrade } from '../shared/contracts'
 import { UNGRADED, gradeLabel } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
-import { Button, ListRow, ScreenHeading, SectionHeader, StatusBanner } from '../shared/ui/components'
+import { Button, ScreenHeading, SectionHeader, StatusBanner } from '../shared/ui/components'
 import { BottomSheet } from '../shared/ui/BottomSheet'
 import { clockTime } from '../shared/format'
 import { money } from './FarmersScreen'
@@ -12,7 +12,7 @@ import './business.css'
 
 const SELL_GRADES: StockGrade[] = ['AGEB', 'AGB', 'AGS', 'AGES', 'REJECT', UNGRADED]
 
-export function SalesScreen() {
+export function SalesScreen({ canManage = false }: { canManage?: boolean }) {
   const [sales, setSales] = useState<Sale[]>([])
   const [prices, setPrices] = useState<GradePrice[]>([])
   const [inventory, setInventory] = useState<InventoryLot[]>([])
@@ -34,6 +34,16 @@ export function SalesScreen() {
     }
   }
   useEffect(() => { void refresh() }, [])
+
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this sale? Its quantity is returned to stock.')) return
+    try {
+      await dryoApi.deleteSale(id)
+      void refresh()
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Could not delete sale.')
+    }
+  }
 
   const total = sales.reduce((sum, s) => sum + s.amount, 0)
 
@@ -60,13 +70,15 @@ export function SalesScreen() {
       <div className="list-group">
         {loading && <div className="empty-state"><p>Loading sales…</p></div>}
         {!loading && sales.map((s) => (
-          <ListRow
-            key={s.id}
-            lead={s.channel === 'AUCTION' ? <Gavel size={18} /> : <Store size={18} />}
-            title={`${s.buyerName}`}
-            subtitle={`${s.quantityKg} kg ${s.grade} @ ${money(s.ratePerKg)} · ${clockTime(s.soldAt)}`}
-            value={<span className="list-row-value biz-credit">{money(s.amount)}</span>}
-          />
+          <div key={s.id} className="list-row" style={{ alignItems: 'center' }}>
+            <span className="list-row-lead">{s.channel === 'AUCTION' ? <Gavel size={18} /> : <Store size={18} />}</span>
+            <span className="list-row-copy">
+              <span className="list-row-title">{s.buyerName}</span>
+              <span className="list-row-subtitle">{s.quantityKg} kg {s.grade} @ {money(s.ratePerKg)} · {clockTime(s.soldAt)}</span>
+            </span>
+            <span className="list-row-value biz-credit">{money(s.amount)}</span>
+            {canManage && <button type="button" className="chip" style={{ marginLeft: 8 }} onClick={() => handleDelete(s.id)} aria-label="Delete sale"><Trash2 size={14} /></button>}
+          </div>
         ))}
         {!loading && sales.length === 0 && <div className="empty-state"><p>No sales recorded yet.</p></div>}
       </div>

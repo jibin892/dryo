@@ -59,6 +59,7 @@ type DryoState = {
   loadIntake: (id: string, chamberId: string) => void
   toggleChamber: (id: string) => void
   createChamber: (input: NewChamberInput) => void
+  editChamber: (id: string, patch: Partial<Chamber>) => void
 }
 
 function nextStage(stage: BatchStage): BatchStage {
@@ -234,6 +235,14 @@ export const useDryo = create<DryoState>((set) => ({
     void dryoApi
       .createChamber(input)
       .then((created) => set((state) => ({ chambers: state.chambers.map((c) => (c.id === optimistic.id ? created : c)) })))
+      .catch(() => undefined)
+  },
+
+  editChamber: (id, patch) => {
+    set((state) => ({ chambers: state.chambers.map((c) => (c.id === id ? { ...c, ...patch } : c)) }))
+    void dryoApi
+      .updateChamber(id, patch)
+      .then((updated) => set((state) => ({ chambers: state.chambers.map((c) => (c.id === id ? updated : c)) })))
       .catch(() => undefined)
   },
 }))

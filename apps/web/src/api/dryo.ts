@@ -32,9 +32,12 @@ export const dryoApi = {
   loadBatch: (id: string, chamberId: string) => api.post<Batch>(`/batches/${id}/load`, { chamberId }),
   advanceBatch: (id: string) => api.post<Batch>(`/batches/${id}/advance`),
   setBatchPaid: (id: string, paid: boolean) => api.post<Batch>(`/batches/${id}/payment`, { paid }),
+  deleteBatch: (id: string) => api.del<{ status: string }>(`/batches/${id}`),
 
   listChambers: () => api.get<Chamber[]>('/chambers'),
   createChamber: (input: Partial<Chamber>) => api.post<Chamber>('/chambers', input),
+  updateChamber: (id: string, input: Partial<Chamber>) => api.patch<Chamber>(`/chambers/${id}`, input),
+  deleteChamber: (id: string) => api.del<{ status: string }>(`/chambers/${id}`),
   toggleChamber: (id: string) => api.post<Chamber>(`/chambers/${id}/toggle`),
   chamberDetail: (id: string) => api.get<ChamberDetailData>(`/chambers/${id}/detail`),
   addChamberExpense: (id: string, input: { amount: number; category?: string; note?: string }) =>
@@ -47,6 +50,9 @@ export const dryoApi = {
   listInventory: () => api.get<InventoryLot[]>('/inventory'),
   updateInventory: (grade: string, input: { costPerKg: number; location?: string }) =>
     api.patch<InventoryLot>(`/inventory/${grade}`, input),
+  upsertInventory: (input: { grade: string; bulkKg?: number; bags?: number; location?: string; costPerKg?: number; avgMoisture?: number }) =>
+    api.post<InventoryLot>('/inventory', input),
+  deleteInventory: (grade: string) => api.del<{ status: string }>(`/inventory/${grade}`),
 
   listMembers: () => api.get<Member[]>('/members'),
   updateMember: (uid: string, patch: { role?: Role; status?: string }) => api.patch<Member>(`/members/${uid}`, patch),
@@ -61,6 +67,7 @@ export const dryoApi = {
   getFarmer: (id: string) => api.get<FarmerDetail>(`/farmers/${id}`),
   createFarmer: (input: { name: string; village?: string; phone?: string; note?: string }) =>
     api.post<Farmer>('/farmers', input),
+  deleteFarmer: (id: string) => api.del<{ status: string }>(`/farmers/${id}`),
   updateFarmer: (id: string, input: { name?: string; village?: string; phone?: string; note?: string }) =>
     api.patch<Farmer>(`/farmers/${id}`, input),
   addFarmerTransaction: (id: string, input: { type: FarmerTransactionType; amount: number; note?: string; batchId?: string }) =>
@@ -68,10 +75,12 @@ export const dryoApi = {
 
   listSales: () => api.get<Sale[]>('/sales'),
   createSale: (input: Partial<Sale>) => api.post<Sale>('/sales', input),
+  deleteSale: (id: string) => api.del<{ status: string }>(`/sales/${id}`),
 
   listPricing: () => api.get<GradePrice[]>('/pricing'),
   upsertPrice: (grade: string, input: { sellRatePerKg: number; costRatePerKg?: number; yieldRatio?: number }) =>
     api.put<GradePrice>(`/pricing/${grade}`, input),
+  deletePrice: (grade: string) => api.del<{ status: string }>(`/pricing/${grade}`),
 
   listAddons: () => api.get<ServiceAddon[]>('/addons'),
   createAddon: (input: { name: string; rate: number; perKg: boolean }) => api.post<ServiceAddon>('/addons', input),

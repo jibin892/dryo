@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Droplets, Pencil, Plus } from 'lucide-react'
+import { Droplets, Pencil, Plus, Trash2 } from 'lucide-react'
 import type { Batch, Farmer, Grade, GradePrice } from '../shared/contracts'
 import { GRADE_LABEL, STAGE_LABEL, STAGE_ORDER } from '../shared/contracts'
 import { clockTime, stageTone } from '../shared/format'
 import { dryoApi } from '../api/dryo'
+import { ApiError } from '../api/client'
 import { useDryo, type NewBatchInput } from '../app/store'
 import { Button, Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner, Weight } from '../shared/ui/components'
 import { BottomSheet } from '../shared/ui/BottomSheet'
@@ -294,13 +295,23 @@ const NEXT_ACTION: Partial<Record<Batch['stage'], string>> = {
   READY: 'Mark dispatched',
 }
 
-export function BatchDetail({ batch }: { batch: Batch }) {
+export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Batch; canManage?: boolean; onDeleted?: () => void }) {
   const advanceBatch = useDryo((state) => state.advanceBatch)
   const updateBatch = useDryo((state) => state.updateBatch)
   const setBatchPaid = useDryo((state) => state.setBatchPaid)
   const loadBatchIntoChamber = useDryo((state) => state.loadBatchIntoChamber)
   const chambers = useDryo((state) => state.chambers)
   const [editing, setEditing] = useState(false)
+
+  async function handleDelete() {
+    if (!confirm(`Delete lot ${batch.lotCode}? This reverses its ledger entries and frees its chamber. Cannot be undone.`)) return
+    try {
+      await dryoApi.deleteBatch(batch.id)
+      onDeleted?.()
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Could not delete lot.')
+    }
+  }
   const [loadChamberSel, setLoadChamberSel] = useState('')
   const idleChambers = chambers.filter((c) => c.status === 'IDLE')
   const chamber = chambers.find((item) => item.id === batch.chamberId)
@@ -327,6 +338,11 @@ export function BatchDetail({ batch }: { batch: Batch }) {
           <button type="button" className="chip" onClick={() => setEditing((v) => !v)}>
             <Pencil size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Edit
           </button>
+          {canManage && (
+            <button type="button" className="chip" onClick={handleDelete} aria-label="Delete lot">
+              <Trash2 size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Delete
+            </button>
+          )}
         </div>
       </div>
 

@@ -100,14 +100,14 @@ export function App() {
   if (currentPath === '/notifications') {
     content = <NotificationsScreen />
   } else if (currentPath === '/sales') {
-    content = <SalesScreen />
+    content = <SalesScreen canManage={canManageMembers(session.role)} />
   } else if (currentPath === '/team') {
     activePath = '/account'
     content = <TeamScreen canEditRoles={session.role === 'OWNER'} />
     if (wide === false) mobileDetail = { title: 'Team', onBack: () => goBack('/account') }
   } else if (currentPath === '/farmers') {
     activePath = '/account'
-    content = <FarmersScreen />
+    content = <FarmersScreen canManage={canManageMembers(session.role)} />
     if (wide === false) mobileDetail = { title: 'Farmers', onBack: () => goBack('/account') }
   } else if (currentPath === '/pricing') {
     activePath = '/account'
@@ -123,14 +123,14 @@ export function App() {
     activePath = '/batches'
     content = <BatchesScreen selectedId={selectedBatch?.id} onSelect={openBatch} />
     if (selectedBatch && (routedBatch || wide)) {
-      detail = <BatchDetail key={selectedBatch.id} batch={selectedBatch} />
+      detail = <BatchDetail key={selectedBatch.id} batch={selectedBatch} canManage={canManageMembers(session.role)} onDeleted={() => { setSelectedBatchId(undefined); navigate('/batches'); void loadAll() }} />
       if (routedBatch) mobileDetail = { title: 'Batch details', onBack: () => goBack('/batches') }
     }
   } else if (currentPath.startsWith('/chambers')) {
     activePath = '/chambers'
     content = <ChambersScreen selectedId={selectedChamber?.id} onSelect={openChamber} />
     if (selectedChamber && (routedChamber || wide)) {
-      detail = <ChamberDetail key={selectedChamber.id} chamber={selectedChamber} />
+      detail = <ChamberDetail key={selectedChamber.id} chamber={selectedChamber} canManage={canManageMembers(session.role)} onDeleted={() => { setSelectedChamberId(undefined); navigate('/chambers'); void loadAll() }} />
       if (routedChamber) mobileDetail = { title: 'Chamber details', onBack: () => goBack('/chambers') }
     }
   } else if (currentPath === '/inventory') {

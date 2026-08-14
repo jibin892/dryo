@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Coins, TrendingUp, Warehouse } from 'lucide-react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Coins, Plus, Trash2, TrendingUp, Warehouse } from 'lucide-react'
 import type { GradePrice, InventoryLot } from '../shared/contracts'
 import { gradeLabel } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { useDryo } from '../app/store'
-import { ScreenHeading, SectionHeader, StatCard, StatusBanner } from '../shared/ui/components'
+import { Button, ScreenHeading, StatCard, StatusBanner } from '../shared/ui/components'
+import { BottomSheet } from '../shared/ui/BottomSheet'
 import { money } from '../business/FarmersScreen'
 import '../business/business.css'
 
@@ -15,6 +16,7 @@ export function InventoryScreen({ canEdit = false }: { canEdit?: boolean }) {
   const [prices, setPrices] = useState<GradePrice[]>([])
   const [draft, setDraft] = useState<Record<string, { cost: string; location: string }>>({})
   const [banner, setBanner] = useState<{ tone: 'positive' | 'warning'; text: string } | null>(null)
+  const [adding, setAdding] = useState(false)
 
   async function refresh() {
     try {
@@ -36,6 +38,18 @@ export function InventoryScreen({ canEdit = false }: { canEdit?: boolean }) {
     const retail = inventory.reduce((s, l) => s + l.bulkKg * sellRate(l.grade), 0)
     return { kg, cost, retail, margin: retail - cost }
   }, [inventory, prices])
+
+  async function deleteLot(grade: string) {
+    if (!confirm(`Remove the ${grade} stock line?`)) return
+    try {
+      await dryoApi.deleteInventory(grade)
+      setBanner({ tone: 'positive', text: `Removed ${grade}.` })
+      setTimeout(() => setBanner(null), 2000)
+      await refresh()
+    } catch (err) {
+      setBanner({ tone: 'warning', text: err instanceof ApiError ? err.message : 'Could not remove stock line.' })
+    }
+  }
 
   async function saveRow(grade: string) {
     const d = draft[grade]
@@ -62,7 +76,13 @@ export function InventoryScreen({ canEdit = false }: { canEdit?: boolean }) {
         <StatCard label="Potential margin" value={money(totals.margin)} icon={TrendingUp} />
       </div>
 
-      <SectionHeader title="By grade" />
+      <div className="section-header">
+        <h2>By grade</h2>
+        {canEdit && <button className="chip" type="button" onClick={() => setAdding(true)}><Plus size={15} style={{ verticalAlign: '-2px', marginRight: 4 }} />Add stock</button>}
+      </div>
+      <BottomSheet open={adding && canEdit} onClose={() => setAdding(false)} title="Add / correct stock">
+        <AddStockForm onDone={() => { setAdding(false); void refresh() }} />
+      </BottomSheet>
       <div className="list-group">
         {inventory.map((lot) => {
           const marginKg = sellRate(lot.grade) - lot.costPerKg
@@ -73,7 +93,10 @@ export function InventoryScreen({ canEdit = false }: { canEdit?: boolean }) {
                   <p className="list-row-title">{gradeLabel(lot.grade)}</p>
                   <p className="list-row-subtitle">{lot.bulkKg} kg · {lot.bags} bags · {lot.avgMoisture}% moisture</p>
                 </div>
-                <span className={`metric metric-sm ${marginKg >= 0 ? 'biz-credit' : 'biz-debit'}`}>{marginKg >= 0 ? '+' : '−'}{money(marginKg)}/kg</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className={`metric metric-sm ${marginKg >= 0 ? 'biz-credit' : 'biz-debit'}`}>{marginKg >= 0 ? '+' : '−'}{money(marginKg)}/kg</span>
+                  {canEdit && <button type="button" className="chip" onClick={() => deleteLot(lot.grade)} aria-label={`Delete ${lot.grade}`}><Trash2 size={14} style={{ verticalAlign: '-2px' }} /></button>}
+                </span>
               </div>
               {canEdit ? (
                 <div className="inv-edit">
@@ -97,5 +120,49 @@ export function InventoryScreen({ canEdit = false }: { canEdit?: boolean }) {
         {inventory.length === 0 && <div className="empty-state"><p>No graded stock yet.</p></div>}
       </div>
     </>
+  )
+}
+
+function AddStockForm({ onDone }: { onDone: () => void }) {
+  const [grade, setGrade] = useState('')
+  const [bulkKg, setBulk] = useState('')
+  const [bags, setBags] = useState('')
+  const [location, setLocation] = useState('')
+  const [cost, setCost] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (grade.trim().length < 2) return
+    setBusy(true)
+    try {
+      await dryoApi.upsertInventory({
+        grade: grade.trim().toUpperCase(),
+        bulkKg: Number(bulkKg) || 0,
+        bags: Number(bags) || 0,
+        location: location.trim(),
+        costPerKg: Number(cost) || 0,
+        avgMoisture: 10,
+      })
+      onDone()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="biz-form" onSubmit={submit}>
+      <input className="biz-input" placeholder="Grade code (e.g. AGEB or UNGRADED)" value={grade} onChange={(e) => setGrade(e.target.value)} autoFocus />
+      <div style={{ display: 'flex', gap: 12 }}>
+        <input className="biz-input" placeholder="Stock kg (sets total)" value={bulkKg} onChange={(e) => setBulk(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        <input className="biz-input" placeholder="Bags" value={bags} onChange={(e) => setBags(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" />
+      </div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <input className="biz-input" placeholder="Cost ₹/kg" value={cost} onChange={(e) => setCost(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        <input className="biz-input" placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} />
+      </div>
+      <p className="detail-sub" style={{ padding: '0 4px' }}>Sets the total stock for this grade (manual add / correction).</p>
+      <Button type="submit" disabled={grade.trim().length < 2 || busy}>{busy ? 'Saving…' : 'Save stock'}</Button>
+    </form>
   )
 }

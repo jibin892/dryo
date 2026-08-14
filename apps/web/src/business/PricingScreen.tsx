@@ -90,6 +90,18 @@ function GradesPanel({ canEdit }: { canEdit: boolean }) {
     }
   }
 
+  async function removeGrade(grade: string) {
+    if (!confirm(`Delete grade ${grade} from the rate card?`)) return
+    try {
+      await dryoApi.deletePrice(grade)
+      await refresh()
+      setBanner({ tone: 'positive', text: `Deleted ${grade}.` })
+      setTimeout(() => setBanner(null), 2000)
+    } catch (err) {
+      setBanner({ tone: 'warning', text: apiErrText(err, 'Could not delete grade') })
+    }
+  }
+
   async function addGrade(e: FormEvent) {
     e.preventDefault()
     const code = nw.code.trim().toUpperCase()
@@ -138,7 +150,10 @@ function GradesPanel({ canEdit }: { canEdit: boolean }) {
           <div key={p.grade} className="card">
             <div className="inv-row-head" style={{ marginBottom: 4 }}>
               <p className="list-row-title"><Tag size={16} style={{ verticalAlign: '-3px', marginRight: 6 }} />{gradeLabel(p.grade)}</p>
-              <span className="detail-sub">margin ₹{Math.round((Number(d.sell) || 0) - (Number(d.cost) || 0)).toLocaleString('en-IN')}/kg</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="detail-sub">margin ₹{Math.round((Number(d.sell) || 0) - (Number(d.cost) || 0)).toLocaleString('en-IN')}/kg</span>
+                {canEdit && <button type="button" className="chip" onClick={() => removeGrade(p.grade)} aria-label={`Delete ${p.grade}`}><Trash2 size={14} style={{ verticalAlign: '-2px' }} /></button>}
+              </span>
             </div>
             <div className="price-fields">
               <label>Sell ₹/kg<input className="price-row-input" disabled={!canEdit} inputMode="decimal" value={d.sell} onChange={(e) => set(p.grade, 'sell', e.target.value)} /></label>

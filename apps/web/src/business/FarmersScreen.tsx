@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowLeft, IndianRupee, Pencil, Plus, UserRound } from 'lucide-react'
+import { ArrowLeft, IndianRupee, Pencil, Plus, Trash2, UserRound } from 'lucide-react'
 import type { Farmer, FarmerDetail, FarmerTransactionType } from '../shared/contracts'
 import { STAGE_LABEL } from '../shared/contracts'
 import { dryoApi } from '../api/dryo'
@@ -29,7 +29,7 @@ function BalancePill({ balance }: { balance: number }) {
     : <Pill tone="positive">Owes {money(balance)}</Pill>
 }
 
-export function FarmersScreen() {
+export function FarmersScreen({ canManage = false }: { canManage?: boolean }) {
   const [farmers, setFarmers] = useState<Farmer[]>([])
   const [selected, setSelected] = useState<FarmerDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,7 +55,7 @@ export function FarmersScreen() {
   }
 
   if (selected) {
-    return <FarmerDetailView detail={selected} onBack={() => { setSelected(null); void refresh() }} onChanged={() => openFarmer(selected.id)} />
+    return <FarmerDetailView detail={selected} canManage={canManage} onBack={() => { setSelected(null); void refresh() }} onChanged={() => openFarmer(selected.id)} />
   }
 
   return (
@@ -116,7 +116,7 @@ function AddFarmer({ onDone }: { onDone: () => void }) {
 
 const TX_TYPES: FarmerTransactionType[] = ['PAYMENT', 'ADVANCE', 'PURCHASE', 'JOBWORK_CHARGE']
 
-function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail; onBack: () => void; onChanged: () => void }) {
+function FarmerDetailView({ detail, canManage, onBack, onChanged }: { detail: FarmerDetail; canManage: boolean; onBack: () => void; onChanged: () => void }) {
   const [type, setType] = useState<FarmerTransactionType>('PAYMENT')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
@@ -152,6 +152,16 @@ function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail;
     onChanged()
   }
 
+  async function handleDelete() {
+    if (!confirm(`Delete ${detail.name}? Their ledger is removed too. Cannot be undone.`)) return
+    try {
+      await dryoApi.deleteFarmer(detail.id)
+      onBack()
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Could not delete farmer.')
+    }
+  }
+
   // What this lot posted to the ledger (excludes settling payments).
   const lotAmount = (batchId: string) =>
     detail.transactions.filter((t) => t.batchId === batchId && t.type !== 'PAYMENT').reduce((s, t) => s + t.amount, 0)
@@ -167,7 +177,10 @@ function FarmerDetailView({ detail, onBack, onChanged }: { detail: FarmerDetail;
           <h2>{detail.name}</h2>
           <p className="detail-sub">{detail.village || '—'}{detail.phone ? ` · ${detail.phone}` : ''}</p>
         </div>
-        <button type="button" className="chip" onClick={() => setEditing((v) => !v)}><Pencil size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Edit</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" className="chip" onClick={() => setEditing((v) => !v)}><Pencil size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Edit</button>
+          {canManage && <button type="button" className="chip" onClick={handleDelete} aria-label="Delete farmer"><Trash2 size={14} style={{ verticalAlign: '-2px' }} /></button>}
+        </div>
       </div>
 
       <div style={{ padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

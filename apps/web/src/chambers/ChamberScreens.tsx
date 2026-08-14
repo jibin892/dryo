@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Boxes, CalendarClock, CheckCircle2, Coins, Droplets, Flame, PlayCircle, Plus, Power, Receipt, ThermometerSun, Timer, TriangleAlert, Wind } from 'lucide-react'
+import { Boxes, CalendarClock, CheckCircle2, Coins, Droplets, Flame, Pencil, PlayCircle, Plus, Power, Receipt, ThermometerSun, Timer, Trash2, TriangleAlert, Wind } from 'lucide-react'
 import type { Chamber, ChamberDetailData, ChamberType } from '../shared/contracts'
 import { CHAMBER_TYPE_LABEL } from '../shared/contracts'
 import { chamberTone, clockTime } from '../shared/format'
 import { dryoApi } from '../api/dryo'
+import { ApiError } from '../api/client'
 import { useDryo, type NewChamberInput } from '../app/store'
 import { Button, Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatCard, StatusBanner } from '../shared/ui/components'
 import { BottomSheet } from '../shared/ui/BottomSheet'
@@ -121,13 +122,55 @@ function ExpenseForm({ chamberId, onDone }: { chamberId: string; onDone: () => v
   )
 }
 
-export function ChamberDetail({ chamber }: { chamber: Chamber }) {
+function ChamberEditForm({ chamber, onSave, onCancel }: { chamber: Chamber; onSave: (patch: Partial<Chamber>) => void; onCancel: () => void }) {
+  const [name, setName] = useState(chamber.name)
+  const [type, setType] = useState<ChamberType>(chamber.type)
+  const [capacityKg, setCap] = useState(String(chamber.capacityKg))
+  const [targetTempC, setTarget] = useState(String(chamber.targetTempC))
+  const [cycleHours, setCycle] = useState(String(chamber.cycleHours))
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    onSave({ name: name.trim(), type, capacityKg: Number(capacityKg) || 0, targetTempC: Number(targetTempC) || 0, cycleHours: Number(cycleHours) || 0 })
+  }
+  return (
+    <form className="biz-form" onSubmit={submit}>
+      <input className="biz-input" placeholder="Chamber name" value={name} onChange={(e) => setName(e.target.value)} />
+      <select className="biz-select" value={type} onChange={(e) => setType(e.target.value as ChamberType)}>
+        {CHAMBER_TYPES.map((t) => <option key={t} value={t}>{CHAMBER_TYPE_LABEL[t]}</option>)}
+      </select>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <input className="biz-input" placeholder="Capacity kg" value={capacityKg} onChange={(e) => setCap(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        <input className="biz-input" placeholder="Target °C" value={targetTempC} onChange={(e) => setTarget(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+      </div>
+      <input className="biz-input" placeholder="Cycle hours" value={cycleHours} onChange={(e) => setCycle(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+      <div style={{ display: 'flex', gap: 12 }}>
+        <Button type="submit" disabled={name.trim().length < 1}>Save chamber</Button>
+        <Button type="button" variant="light" onClick={onCancel}>Cancel</Button>
+      </div>
+    </form>
+  )
+}
+
+export function ChamberDetail({ chamber, canManage = false, onDeleted }: { chamber: Chamber; canManage?: boolean; onDeleted?: () => void }) {
   const toggleChamber = useDryo((state) => state.toggleChamber)
+  const editChamber = useDryo((state) => state.editChamber)
   const batches = useDryo((state) => state.batches)
   const batch = batches.find((item) => item.id === chamber.batchId)
   const overTemp = chamber.targetTempC > 0 && chamber.tempC > chamber.targetTempC + 5
   const [detail, setDetail] = useState<ChamberDetailData | null>(null)
   const [addingExp, setAddingExp] = useState(false)
+  const [editing, setEditing] = useState(false)
+
+  async function handleDelete() {
+    if (!confirm(`Delete ${chamber.name}? Its run and expense history will be removed. Cannot be undone.`)) return
+    try {
+      await dryoApi.deleteChamber(chamber.id)
+      onDeleted?.()
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Could not delete chamber.')
+    }
+  }
 
   async function refresh() {
     try {
@@ -148,8 +191,20 @@ export function ChamberDetail({ chamber }: { chamber: Chamber }) {
           <h2>{chamber.name}</h2>
           <p className="detail-sub">{batch ? `Lot ${batch.lotCode} · ${batch.farmerName}` : 'No batch loaded'}</p>
         </div>
-        <Pill tone={chamberTone(chamber.status)}>{STATUS_LABEL[chamber.status]}</Pill>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+          <Pill tone={chamberTone(chamber.status)}>{STATUS_LABEL[chamber.status]}</Pill>
+          {canManage && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="chip" onClick={() => setEditing(true)}><Pencil size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Edit</button>
+              <button type="button" className="chip" onClick={handleDelete} aria-label="Delete chamber"><Trash2 size={14} style={{ verticalAlign: '-2px' }} /></button>
+            </div>
+          )}
+        </div>
       </div>
+
+      <BottomSheet open={editing} onClose={() => setEditing(false)} title="Edit chamber">
+        <ChamberEditForm chamber={chamber} onSave={(patch) => { editChamber(chamber.id, patch); setEditing(false) }} onCancel={() => setEditing(false)} />
+      </BottomSheet>
 
       {chamber.status === 'FAULT' && (
         <StatusBanner tone="critical">
