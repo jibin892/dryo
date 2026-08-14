@@ -266,7 +266,8 @@ func (a *API) setBatchPaid(w http.ResponseWriter, r *http.Request) {
 }
 
 type loadBatchBody struct {
-	ChamberID string `json:"chamberId"`
+	ChamberID string  `json:"chamberId"`
+	Kg        float64 `json:"kg"`
 }
 
 func (a *API) loadBatch(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +280,7 @@ func (a *API) loadBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "chamberId is required")
 		return
 	}
-	out, err := a.store.LoadBatch(r.Context(), id, body.ChamberID)
+	out, err := a.store.LoadBatch(r.Context(), id, body.ChamberID, body.Kg)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "batch not found")
 		return

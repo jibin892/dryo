@@ -352,7 +352,18 @@ export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Ba
     }
   }
   const [loadChamberSel, setLoadChamberSel] = useState('')
+  const [loadKg, setLoadKg] = useState('')
   const idleChambers = chambers.filter((c) => c.status === 'IDLE')
+
+  // Default the load amount to fill the chosen chamber (or the whole lot if smaller).
+  function pickLoadChamber(id: string) {
+    setLoadChamberSel(id)
+    const c = idleChambers.find((x) => x.id === id)
+    if (c) setLoadKg(String(Math.min(Math.round(batch.greenWeightKg), Math.round(c.capacityKg - c.loadKg))))
+  }
+  const selChamber = idleChambers.find((c) => c.id === loadChamberSel)
+  const freeKg = selChamber ? Math.round(selChamber.capacityKg - selChamber.loadKg) : 0
+  const loadRemainder = Math.max(0, Math.round(batch.greenWeightKg - (Number(loadKg) || 0)))
   const chamber = chambers.find((item) => item.id === batch.chamberId)
   const currentIndex = STAGE_ORDER.indexOf(batch.stage)
   const yieldPct = batch.driedWeightKg ? Math.round((batch.driedWeightKg / batch.greenWeightKg) * 100) : null
@@ -438,11 +449,22 @@ export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Ba
           {batch.stage === 'INTAKE' ? (
             idleChambers.length > 0 ? (
               <>
-                <select className="biz-select" value={loadChamberSel} onChange={(e) => setLoadChamberSel(e.target.value)} style={{ marginBottom: 10 }}>
+                <select className="biz-select" value={loadChamberSel} onChange={(e) => pickLoadChamber(e.target.value)} style={{ marginBottom: 10 }}>
                   <option value="">Choose a chamber…</option>
-                  {idleChambers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {idleChambers.map((c) => <option key={c.id} value={c.id}>{c.name} · {Math.round(c.capacityKg - c.loadKg)} kg free</option>)}
                 </select>
-                <Button disabled={!loadChamberSel} onClick={() => loadBatchIntoChamber(batch.id, loadChamberSel)}>Load into chamber</Button>
+                {loadChamberSel && (
+                  <>
+                    <input className="biz-input" placeholder="kg to load" value={loadKg} onChange={(e) => setLoadKg(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" style={{ marginBottom: 8 }} />
+                    <p className="detail-sub" style={{ padding: '0 4px 10px' }}>
+                      {loadRemainder > 0
+                        ? `${Number(loadKg) || 0} kg loads now · ${loadRemainder} kg stays as a new lot to load elsewhere.`
+                        : `Loading the full lot (${Math.round(batch.greenWeightKg)} kg).`}
+                      {Number(loadKg) > freeKg ? ' ⚠ over chamber capacity' : ''}
+                    </p>
+                  </>
+                )}
+                <Button disabled={!loadChamberSel || !(Number(loadKg) > 0)} onClick={() => loadBatchIntoChamber(batch.id, loadChamberSel, Number(loadKg) || undefined)}>Load into chamber</Button>
               </>
             ) : (
               <StatusBanner tone="warning">No idle chamber available — free one first.</StatusBanner>

@@ -389,23 +389,64 @@ func (s *Store) AdvanceBatch(ctx context.Context, id string) (Batch, error) {
 	return out, nil
 }
 
-// LoadBatch assigns an INTAKE batch to a chamber and starts drying, occupying
-// the chamber — all in one transaction.
-func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string) (Batch, error) {
+// nextLotCode returns the next sequential VDM-#### lot code.
+func nextLotCode(ctx context.Context, tx pgx.Tx) string {
+	var n int
+	if err := tx.QueryRow(ctx,
+		`SELECT COALESCE(MAX(NULLIF(regexp_replace(lot_code, '\D', '', 'g'), '')::int), 1045) + 1
+		 FROM batches WHERE lot_code LIKE 'VDM-%'`).Scan(&n); err != nil {
+		n = 1046
+	}
+	return fmt.Sprintf("VDM-%d", n)
+}
+
+// LoadBatch assigns an INTAKE batch to a chamber and starts drying. If kg is a
+// partial amount (0 < kg < the lot's green weight), the lot is SPLIT: only kg
+// goes into the chamber and the remainder is spun off as a new INTAKE lot (same
+// farmer/grade/rate/add-ons) to load elsewhere. The farmer's money is unaffected
+// — an own-purchase is already booked in full on the original lot, and job-work
+// curing/add-ons are billed per part at settlement, summing to the whole.
+func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string, kg float64) (Batch, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Batch{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	out, err := scanOneBatch(ctx, tx,
-		`UPDATE batches SET chamber_id=$2, stage='DRYING' WHERE id=$1 RETURNING `+batchCols, batchID, chamberID)
+	b, err := scanOneBatch(ctx, tx, `SELECT `+batchCols+` FROM batches WHERE id=$1 FOR UPDATE`, batchID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Batch{}, ErrNotFound
 	} else if err != nil {
 		return Batch{}, err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1`, chamberID, batchID, out.GreenWeightKg); err != nil {
+
+	loadKg := kg
+	if loadKg <= 0 || loadKg >= b.GreenWeightKg {
+		loadKg = b.GreenWeightKg // load the whole lot
+	} else {
+		// Split: create the remainder as a fresh INTAKE lot.
+		addons := b.AddonIDs
+		if addons == nil {
+			addons = []string{}
+		}
+		note := "Split from " + b.LotCode
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, stage, target_moisture,
+			   current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_enabled, addon_ids)
+			 VALUES ($1,$2,$3,$4,$5,'INTAKE',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+			newID("bt"), nextLotCode(ctx, tx), b.FarmerName, b.Village, b.GreenWeightKg-loadKg, b.TargetMoisture,
+			b.CurrentMoisture, b.RatePerKg, note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingEnabled, addons); err != nil {
+			return Batch{}, err
+		}
+	}
+
+	out, err := scanOneBatch(ctx, tx,
+		`UPDATE batches SET chamber_id=$2, stage='DRYING', green_weight_kg=$3 WHERE id=$1 RETURNING `+batchCols,
+		batchID, chamberID, loadKg)
+	if err != nil {
+		return Batch{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1`, chamberID, batchID, loadKg); err != nil {
 		return Batch{}, err
 	}
 	if err := openChamberRun(ctx, tx, chamberID, out); err != nil {

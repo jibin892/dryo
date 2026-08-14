@@ -53,7 +53,7 @@ type DryoState = {
   createBatch: (input: NewBatchInput) => void
   updateBatch: (id: string, patch: Partial<Batch>) => void
   setBatchPaid: (id: string, paid: boolean) => void
-  loadBatchIntoChamber: (batchId: string, chamberId: string) => void
+  loadBatchIntoChamber: (batchId: string, chamberId: string, kg?: number) => void
   advanceBatch: (id: string) => void
   createIntake: (input: NewIntakeInput) => void
   loadIntake: (id: string, chamberId: string) => void
@@ -68,7 +68,7 @@ function nextStage(stage: BatchStage): BatchStage {
   return STAGE_ORDER[Math.min(i + 1, STAGE_ORDER.length - 1)]
 }
 
-export const useDryo = create<DryoState>((set) => ({
+export const useDryo = create<DryoState>((set, get) => ({
   batches: seedBatches,
   chambers: seedChambers,
   intake: seedIntake,
@@ -148,12 +148,13 @@ export const useDryo = create<DryoState>((set) => ({
       .catch(() => undefined)
   },
 
-  loadBatchIntoChamber: (batchId, chamberId) => {
+  loadBatchIntoChamber: (batchId, chamberId, kg) => {
     set((state) => ({
       batches: state.batches.map((b) => (b.id === batchId ? { ...b, chamberId, stage: 'DRYING' } : b)),
       chambers: state.chambers.map((c) => (c.id === chamberId ? { ...c, status: 'DRYING', batchId } : c)),
     }))
-    void dryoApi.loadBatch(batchId, chamberId).catch(() => undefined)
+    // Refresh after: a partial load splits off a new remainder lot server-side.
+    void dryoApi.loadBatch(batchId, chamberId, kg).then(() => get().loadAll()).catch(() => undefined)
   },
 
   advanceBatch: (id) => {
