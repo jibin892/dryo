@@ -38,6 +38,15 @@ type GradePrice struct {
 	UpdatedAt     time.Time `json:"updatedAt"     db:"updated_at"`
 }
 
+type ServiceAddon struct {
+	ID        string    `json:"id"        db:"id"`
+	Name      string    `json:"name"      db:"name"`
+	Rate      float64   `json:"rate"      db:"rate"`
+	PerKg     bool      `json:"perKg"     db:"per_kg"`
+	Active    bool      `json:"active"    db:"active"`
+	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
+}
+
 type HouseSettings struct {
 	HouseName              string  `json:"houseName"              db:"house_name"`
 	DefaultCuringRatePerKg float64 `json:"defaultCuringRatePerKg" db:"default_curing_rate_per_kg"`
@@ -163,6 +172,53 @@ func (s *Store) UpsertGradePrice(ctx context.Context, grade string, sell, cost, 
 		return GradePrice{}, err
 	}
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByNameLax[GradePrice])
+}
+
+// ─────────────────────────── service add-ons ───────────────────────────
+
+const addonCols = `id, name, rate, per_kg, active, updated_at`
+
+func (s *Store) ListAddons(ctx context.Context) ([]ServiceAddon, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+addonCols+` FROM service_addons ORDER BY name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[ServiceAddon])
+}
+
+func (s *Store) CreateAddon(ctx context.Context, name string, rate float64, perKg bool) (ServiceAddon, error) {
+	rows, err := s.pool.Query(ctx,
+		`INSERT INTO service_addons (id, name, rate, per_kg) VALUES ($1,$2,$3,$4)
+		 RETURNING `+addonCols, newID("addon"), name, rate, perKg)
+	if err != nil {
+		return ServiceAddon{}, err
+	}
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByNameLax[ServiceAddon])
+}
+
+func (s *Store) UpdateAddon(ctx context.Context, id, name string, rate float64, perKg, active bool) (ServiceAddon, error) {
+	rows, err := s.pool.Query(ctx,
+		`UPDATE service_addons SET name=COALESCE(NULLIF($2,''), name), rate=$3, per_kg=$4, active=$5, updated_at=now()
+		 WHERE id=$1 RETURNING `+addonCols, id, name, rate, perKg, active)
+	if err != nil {
+		return ServiceAddon{}, err
+	}
+	a, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByNameLax[ServiceAddon])
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ServiceAddon{}, ErrNotFound
+	}
+	return a, err
+}
+
+func (s *Store) DeleteAddon(ctx context.Context, id string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM service_addons WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *Store) GetSettings(ctx context.Context) (HouseSettings, error) {

@@ -99,13 +99,25 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
   const [note, setNote] = useState('')
   const [chamberSel, setChamberSel] = useState('')
   const [gradingOn, setGradingOn] = useState(false)
-  const [gradingCharge, setGradingCharge] = useState('')
+  const [gradingPerKg, setGradingPerKg] = useState(true)
+  const [gradingRate, setGradingRate] = useState('')
   const chambers = useDryo((s) => s.chambers)
   const idleChambers = chambers.filter((c) => c.status === 'IDLE')
 
   useEffect(() => {
     dryoApi.listPricing().then(setPrices).catch(() => setPrices([]))
+    // Pre-fill the grading add-on from its central price, if one is set.
+    dryoApi.listAddons().then((addons) => {
+      const g = addons.find((a) => a.id === 'addon-grading' || a.name.toLowerCase() === 'grading')
+      if (g) {
+        setGradingPerKg(g.perKg)
+        if (g.rate > 0) setGradingRate(String(g.rate))
+      }
+    }).catch(() => undefined)
   }, [])
+
+  const greenKg = Number(greenWeightKg) || 0
+  const gradingCharge = gradingOn ? (gradingPerKg ? Math.round((Number(gradingRate) || 0) * greenKg) : Number(gradingRate) || 0) : 0
 
   // Picking a grade auto-fills the green rate: dried cost × yield ≈ what the
   // green is worth per kg (own-purchase only; job-work uses a curing charge).
@@ -135,7 +147,7 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
       grade: grade || undefined,
       note: note.trim() || undefined,
       chamberId: chamberSel || undefined,
-      gradingCharge: gradingOn ? Number(gradingCharge) || 0 : 0,
+      gradingCharge,
     })
   }
 
@@ -172,6 +184,11 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
         inputMode="decimal"
       />
+      {ownership === 'OWN' && gradePrice && (
+        <p className="detail-sub" style={{ padding: '0 4px' }}>
+          Suggested green rate ₹{Math.round(gradePrice.costRatePerKg * gradePrice.yieldRatio).toLocaleString('en-IN')}/kg = cost ₹{gradePrice.costRatePerKg}/kg × {Math.round(gradePrice.yieldRatio * 100)}% yield. Edit if you paid differently.
+        </p>
+      )}
       {ownership === 'OWN' && Number(greenWeightKg) > 0 && Number(rate) > 0 && (
         <p className="detail-sub" style={{ padding: '0 4px' }}>
           Total payable to farmer: <strong>₹{(Number(greenWeightKg) * Number(rate)).toLocaleString('en-IN')}</strong> ({greenWeightKg} kg × ₹{rate})
@@ -180,8 +197,9 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
 
       <select className="biz-select" value={chamberSel} onChange={(e) => setChamberSel(e.target.value)}>
         <option value="">Load into chamber later…</option>
+        {idleChambers.length === 0 && <option value="" disabled>No idle chamber free right now</option>}
         {idleChambers.map((c) => (
-          <option key={c.id} value={c.id}>Load into {c.name}</option>
+          <option key={c.id} value={c.id}>{c.name} · {c.capacityKg} kg capacity{greenKg > c.capacityKg ? ' — over capacity' : ''}</option>
         ))}
       </select>
 
@@ -191,7 +209,18 @@ function NewBatch({ suggestedLot, onCreate }: { suggestedLot: string; onCreate: 
         </button>
       </div>
       {gradingOn && (
-        <input className="biz-input" placeholder="Grading charge ₹ (separate from drying)" value={gradingCharge} onChange={(e) => setGradingCharge(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+        <>
+          <div className="chip-row" style={{ padding: '2px 0' }}>
+            <button type="button" className={`chip ${gradingPerKg ? 'is-active' : ''}`} onClick={() => setGradingPerKg(true)}>Per kg</button>
+            <button type="button" className={`chip ${!gradingPerKg ? 'is-active' : ''}`} onClick={() => setGradingPerKg(false)}>Flat charge</button>
+          </div>
+          <input className="biz-input" placeholder={gradingPerKg ? 'Grading ₹ / kg' : 'Grading flat ₹'} value={gradingRate} onChange={(e) => setGradingRate(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" />
+          {greenKg > 0 && Number(gradingRate) > 0 && (
+            <p className="detail-sub" style={{ padding: '0 4px' }}>
+              Grading charge: <strong>₹{gradingCharge.toLocaleString('en-IN')}</strong>{gradingPerKg ? ` (${greenKg} kg × ₹${gradingRate})` : ''}
+            </p>
+          )}
+        </>
       )}
 
       <input className="biz-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />

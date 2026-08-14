@@ -84,6 +84,7 @@ func NewRouter(cfg config.Config, verifier *auth.Verifier, st *store.Store) http
 				r.Post("/sales", api.createSale)
 
 				r.Get("/pricing", api.listGradePrices)
+				r.Get("/addons", api.listAddons)
 				r.Get("/settings", api.getSettings)
 
 				r.Get("/reports/summary", api.reportSummary)
@@ -100,6 +101,9 @@ func NewRouter(cfg config.Config, verifier *auth.Verifier, st *store.Store) http
 					r.Delete("/invitations/{id}", api.revokeInvitation)
 
 					r.Put("/pricing/{grade}", api.upsertGradePrice)
+					r.Post("/addons", api.createAddon)
+					r.Patch("/addons/{id}", api.updateAddon)
+					r.Delete("/addons/{id}", api.deleteAddon)
 					r.Patch("/settings", api.updateSettings)
 					r.Patch("/inventory/{grade}", api.updateInventory)
 				})

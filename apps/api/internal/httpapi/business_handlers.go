@@ -202,6 +202,78 @@ func (a *API) upsertGradePrice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// ── Service add-ons ──
+
+func (a *API) listAddons(w http.ResponseWriter, r *http.Request) {
+	items, err := a.store.ListAddons(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not list add-ons")
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+type addonBody struct {
+	Name   string  `json:"name"`
+	Rate   float64 `json:"rate"`
+	PerKg  bool    `json:"perKg"`
+	Active bool    `json:"active"`
+}
+
+func (a *API) createAddon(w http.ResponseWriter, r *http.Request) {
+	var body addonBody
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if strings.TrimSpace(body.Name) == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if body.Rate < 0 {
+		writeError(w, http.StatusBadRequest, "rate must be zero or positive")
+		return
+	}
+	out, err := a.store.CreateAddon(r.Context(), strings.TrimSpace(body.Name), body.Rate, body.PerKg)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not create add-on")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (a *API) updateAddon(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var body addonBody
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.Rate < 0 {
+		writeError(w, http.StatusBadRequest, "rate must be zero or positive")
+		return
+	}
+	out, err := a.store.UpdateAddon(r.Context(), id, strings.TrimSpace(body.Name), body.Rate, body.PerKg, body.Active)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "add-on not found")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update add-on")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (a *API) deleteAddon(w http.ResponseWriter, r *http.Request) {
+	err := a.store.DeleteAddon(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "add-on not found")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not delete add-on")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func (a *API) getSettings(w http.ResponseWriter, r *http.Request) {
 	hs, err := a.store.GetSettings(r.Context())
 	if err != nil {

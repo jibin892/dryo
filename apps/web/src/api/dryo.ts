@@ -14,6 +14,7 @@ import type {
   ReportSummary,
   Role,
   Sale,
+  ServiceAddon,
 } from '../shared/contracts'
 import { api } from './client'
 
@@ -65,6 +66,12 @@ export const dryoApi = {
   listPricing: () => api.get<GradePrice[]>('/pricing'),
   upsertPrice: (grade: string, input: { sellRatePerKg: number; costRatePerKg?: number; yieldRatio?: number }) =>
     api.put<GradePrice>(`/pricing/${grade}`, input),
+
+  listAddons: () => api.get<ServiceAddon[]>('/addons'),
+  createAddon: (input: { name: string; rate: number; perKg: boolean }) => api.post<ServiceAddon>('/addons', input),
+  updateAddon: (id: string, input: { name: string; rate: number; perKg: boolean; active: boolean }) =>
+    api.patch<ServiceAddon>(`/addons/${id}`, input),
+  deleteAddon: (id: string) => api.del<{ status: string }>(`/addons/${id}`),
 
   getSettings: () => api.get<HouseSettings>('/settings'),
   updateSettings: (input: HouseSettings) => api.patch<HouseSettings>('/settings', input),

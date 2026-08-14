@@ -195,6 +195,15 @@ export type GradePrice = {
   updatedAt: string
 }
 
+export type ServiceAddon = {
+  id: string
+  name: string
+  rate: number
+  perKg: boolean
+  active: boolean
+  updatedAt: string
+}
+
 export type HouseSettings = {
   houseName: string
   defaultCuringRatePerKg: number
