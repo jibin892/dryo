@@ -233,11 +233,8 @@ func (s *Store) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 		}
 	}
 	// Own purchase → post what the house owes the farmer for the green.
-	if out.Ownership == "OWN" && out.RatePerKg > 0 {
-		amt := math.Round(out.GreenWeightKg * out.RatePerKg)
-		if err := postFarmerTx(ctx, tx, out.FarmerID, "PURCHASE", amt, "Green purchase · "+out.LotCode, out.ID); err != nil {
-			return Batch{}, err
-		}
+	if err := syncPurchase(ctx, tx, out); err != nil {
+		return Batch{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Batch{}, err
@@ -315,12 +312,28 @@ func (s *Store) UpdateBatch(ctx context.Context, id string, p BatchPatch) (Batch
 	if b.AddonIDs == nil {
 		b.AddonIDs = []string{}
 	}
-	return scanOneBatch(ctx, s.pool,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Batch{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	out, err := scanOneBatch(ctx, tx,
 		`UPDATE batches SET lot_code=$2, farmer_name=$3, village=$4, green_weight_kg=$5,
 		   dried_weight_kg=$6, current_moisture=$7, rate_per_kg=$8, grade=$9, note=$10, grading_charge=$11, grading_enabled=$12, addon_ids=$13
 		 WHERE id=$1 RETURNING `+batchCols,
 		id, b.LotCode, b.FarmerName, b.Village, b.GreenWeightKg, b.DriedWeightKg,
 		b.CurrentMoisture, b.RatePerKg, b.Grade, b.Note, b.GradingCharge, b.GradingEnabled, b.AddonIDs)
+	if err != nil {
+		return Batch{}, err
+	}
+	// Editing green weight or rate auto-adjusts what the house owes the farmer.
+	if err := syncPurchase(ctx, tx, out); err != nil {
+		return Batch{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Batch{}, err
+	}
+	return out, nil
 }
 
 // AdvanceBatch moves a batch to the next lifecycle stage. Moving into GRADING
@@ -421,6 +434,7 @@ func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string, kg flo
 	}
 
 	loadKg := kg
+	var rem *Batch
 	if loadKg <= 0 || loadKg >= b.GreenWeightKg {
 		loadKg = b.GreenWeightKg // load the whole lot
 	} else {
@@ -430,14 +444,19 @@ func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string, kg flo
 			addons = []string{}
 		}
 		note := "Split from " + b.LotCode
+		r := b
+		r.ID = newID("bt")
+		r.LotCode = nextLotCode(ctx, tx)
+		r.GreenWeightKg = b.GreenWeightKg - loadKg
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO batches (id, lot_code, farmer_name, village, green_weight_kg, stage, target_moisture,
 			   current_moisture, rate_per_kg, note, ownership, farmer_id, curing_rate_per_kg, grade, grading_enabled, addon_ids)
 			 VALUES ($1,$2,$3,$4,$5,'INTAKE',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-			newID("bt"), nextLotCode(ctx, tx), b.FarmerName, b.Village, b.GreenWeightKg-loadKg, b.TargetMoisture,
-			b.CurrentMoisture, b.RatePerKg, note, b.Ownership, b.FarmerID, b.CuringRatePerKg, b.Grade, b.GradingEnabled, addons); err != nil {
+			r.ID, r.LotCode, r.FarmerName, r.Village, r.GreenWeightKg, r.TargetMoisture,
+			r.CurrentMoisture, r.RatePerKg, note, r.Ownership, r.FarmerID, r.CuringRatePerKg, r.Grade, r.GradingEnabled, addons); err != nil {
 			return Batch{}, err
 		}
+		rem = &r
 	}
 
 	out, err := scanOneBatch(ctx, tx,
@@ -445,6 +464,16 @@ func (s *Store) LoadBatch(ctx context.Context, batchID, chamberID string, kg flo
 		batchID, chamberID, loadKg)
 	if err != nil {
 		return Batch{}, err
+	}
+	// Re-distribute the farmer purchase: the loaded part now owes on loadKg, the
+	// remainder on its own kg — total unchanged.
+	if err := syncPurchase(ctx, tx, out); err != nil {
+		return Batch{}, err
+	}
+	if rem != nil {
+		if err := syncPurchase(ctx, tx, *rem); err != nil {
+			return Batch{}, err
+		}
 	}
 	if _, err := tx.Exec(ctx, `UPDATE chambers SET status='DRYING', batch_id=$2, load_kg=$3 WHERE id=$1`, chamberID, batchID, loadKg); err != nil {
 		return Batch{}, err
@@ -491,6 +520,24 @@ func postFarmerTx(ctx context.Context, tx pgx.Tx, farmerID *string, txType strin
 		 VALUES ($1,$2,$3,$4,$5,$6)`,
 		newID("ftx"), *farmerID, txType, amount, note, batchID)
 	return err
+}
+
+// syncPurchase keeps an OWN batch's PURCHASE ledger entry in step with its
+// current green weight × rate. It replaces any prior entry for the batch, so a
+// split or an edit automatically re-distributes what the house owes the farmer.
+// Job-work batches have no purchase, so this is a no-op for them.
+func syncPurchase(ctx context.Context, tx pgx.Tx, b Batch) error {
+	if b.Ownership != "OWN" {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM farmer_transactions WHERE batch_id=$1 AND type='PURCHASE'`, b.ID); err != nil {
+		return err
+	}
+	amt := math.Round(b.GreenWeightKg * b.RatePerKg)
+	if amt <= 0 {
+		return nil
+	}
+	return postFarmerTx(ctx, tx, b.FarmerID, "PURCHASE", amt, "Green purchase · "+b.LotCode, b.ID)
 }
 
 // invUpsertSQL adds a finished lot to graded inventory, keeping running
