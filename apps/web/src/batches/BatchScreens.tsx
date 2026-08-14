@@ -6,7 +6,7 @@ import { clockTime, stageTone } from '../shared/format'
 import { dryoApi } from '../api/dryo'
 import { ApiError } from '../api/client'
 import { useDryo, type NewBatchInput } from '../app/store'
-import { Button, Gauge, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner, Weight } from '../shared/ui/components'
+import { Button, ListRow, Pill, ScreenHeading, SectionHeader, StatusBanner, Weight } from '../shared/ui/components'
 import { BottomSheet } from '../shared/ui/BottomSheet'
 import { FarmerPicker } from '../shared/ui/FarmerPicker'
 import { GradePicker } from '../shared/ui/GradePicker'
@@ -405,16 +405,6 @@ export function BatchDetail({ batch, canManage = false, onDeleted }: { batch: Ba
           <div className="field"><small>Chamber</small><strong>{chamber ? chamber.name : '—'}</strong></div>
           <div className="field"><small>Add-ons</small><strong>{batch.gradingCharge ? `₹${batch.gradingCharge.toLocaleString('en-IN')}` : (batch.addonIds && batch.addonIds.length) ? `${batch.addonIds.length} · after drying` : '—'}</strong></div>
         </div>
-      </div>
-
-      <div className="card">
-        <Gauge
-          label="Moisture"
-          value={batch.currentMoisture}
-          max={80}
-          display={`${batch.currentMoisture}% → ${batch.targetMoisture}%`}
-          tone={batch.currentMoisture <= batch.targetMoisture + 2 ? 'positive' : 'warning'}
-        />
       </div>
 
       {batch.farmerId && (
