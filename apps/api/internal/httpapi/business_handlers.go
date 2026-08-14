@@ -341,7 +341,6 @@ func (a *API) createSale(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not record sale")
 		return
 	}
-	a.notify.Push("Sale recorded", fmt.Sprintf("%.0f kg %s → %s · ₹%.0f", out.QuantityKg, out.Grade, out.BuyerName, out.Amount))
 	a.recordActivity(r.Context(), "New sale · "+out.BuyerName, fmt.Sprintf("sold %.0f kg %s for ₹%.0f", out.QuantityKg, out.Grade, out.Amount))
 	writeJSON(w, http.StatusCreated, out)
 }
@@ -375,8 +374,17 @@ func parseReportRange(r *http.Request) (time.Time, time.Time) {
 // recordActivity logs a team-feed entry attributed to the caller. Everyone else
 // (owner, managers, operators) sees it; the actor doesn't.
 func (a *API) recordActivity(ctx context.Context, title, what string) {
-	if u, ok := userFrom(ctx); ok {
-		_ = a.store.AddNotification(ctx, u.UID, title, u.DisplayName+" "+what, "neutral")
+	u, ok := userFrom(ctx)
+	if !ok {
+		return
+	}
+	body := u.DisplayName + " " + what
+	_ = a.store.AddNotification(ctx, u.UID, title, body, "neutral")
+	// Device push to everyone else (excludes the actor).
+	if a.notify.Enabled() {
+		if uids, err := a.store.ListOtherActiveUIDs(ctx, u.UID); err == nil {
+			a.notify.PushToExternal(uids, title, body)
+		}
 	}
 }
 

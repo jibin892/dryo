@@ -138,7 +138,7 @@ func (a *API) createInvitation(w http.ResponseWriter, r *http.Request) {
 	if contact == "" {
 		contact = inv.Phone
 	}
-	a.notify.Push("Team invitation", fmt.Sprintf("%s invited as %s", contact, strings.ToLower(inv.Role)))
+	a.recordActivity(r.Context(), "Team invitation", fmt.Sprintf("invited %s as %s", contact, strings.ToLower(inv.Role)))
 	writeJSON(w, http.StatusCreated, inv)
 }
 
@@ -191,7 +191,6 @@ func (a *API) createBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not create batch")
 		return
 	}
-	a.notify.Push("New batch "+out.LotCode, fmt.Sprintf("%s · %.0f kg green", out.FarmerName, out.GreenWeightKg))
 	kind := "purchase"
 	if out.Ownership == "JOBWORK" {
 		kind = "job-work lot"
@@ -288,7 +287,6 @@ func (a *API) loadBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load batch into chamber")
 		return
 	}
-	a.notify.Push("Batch "+out.LotCode, "Loaded into chamber — drying")
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -301,7 +299,6 @@ func (a *API) advanceBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not advance batch")
 		return
 	}
-	a.notify.Push("Batch "+b.LotCode, "Moved to "+b.Stage)
 	writeJSON(w, http.StatusOK, b)
 }
 
@@ -330,7 +327,6 @@ func (a *API) createChamber(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not create chamber")
 		return
 	}
-	a.notify.Push("New chamber", fmt.Sprintf("%s · %.0f kg capacity", out.Name, out.CapacityKg))
 	a.recordActivity(r.Context(), "New chamber · "+out.Name, fmt.Sprintf("added chamber %s (%.0f kg)", out.Name, out.CapacityKg))
 	writeJSON(w, http.StatusCreated, out)
 }
@@ -344,7 +340,6 @@ func (a *API) toggleChamber(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not toggle chamber")
 		return
 	}
-	a.notify.Push("Chamber "+c.Name, "Now "+c.Status)
 	writeJSON(w, http.StatusOK, c)
 }
 
@@ -413,7 +408,6 @@ func (a *API) createIntake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not create intake receipt")
 		return
 	}
-	a.notify.Push("New intake", fmt.Sprintf("%s · %.0f kg green", out.FarmerName, out.WeightKg))
 	writeJSON(w, http.StatusCreated, out)
 }
 
@@ -438,7 +432,6 @@ func (a *API) loadIntake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load intake")
 		return
 	}
-	a.notify.Push("Batch "+batch.LotCode, "Loaded from intake — drying")
 	writeJSON(w, http.StatusOK, batch)
 }
 

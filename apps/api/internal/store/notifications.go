@@ -49,6 +49,25 @@ func (s *Store) ListNotificationsFor(ctx context.Context, viewerUID string, limi
 	return pgx.CollectRows(rows, pgx.RowToStructByNameLax[Notification])
 }
 
+// ListOtherActiveUIDs returns the uids of all ACTIVE users except the given one
+// — the audience for a targeted push about an action they performed.
+func (s *Store) ListOtherActiveUIDs(ctx context.Context, excludeUID string) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT uid FROM users WHERE status='ACTIVE' AND uid <> $1`, excludeUID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var uids []string
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			return nil, err
+		}
+		uids = append(uids, uid)
+	}
+	return uids, rows.Err()
+}
+
 // MarkNotificationsReadFor marks every entry currently visible to the viewer as
 // read by that viewer (leaves other viewers' badges untouched).
 func (s *Store) MarkNotificationsReadFor(ctx context.Context, viewerUID string) error {
